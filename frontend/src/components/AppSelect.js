@@ -1,0 +1,68 @@
+import React, { useState } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Pressable,
+} from 'react-native';
+import styles from '../styles/AppSelect.styles';
+
+export default function AppSelect({
+  label,
+  value,
+  placeholder = 'Select',
+  options = [],
+  onChange,
+  error,
+  disabled = false,
+}) {
+  const [visible, setVisible] = useState(false);
+  const selected = options.find((item) => item.value === value);
+
+  const selectOption = (item) => {
+    onChange(item.value);
+    setVisible(false);
+  };
+
+  return (
+    <View style={styles.wrapper}>
+      {!!label && <Text style={styles.label}>{label}</Text>}
+
+      <TouchableOpacity
+        style={[styles.control, error && styles.errorControl, disabled && styles.disabled]}
+        onPress={() => !disabled && setVisible(true)}
+        disabled={disabled}
+      >
+        <Text style={[styles.value, !selected && styles.placeholder]} numberOfLines={1}>
+          {selected?.label || placeholder}
+        </Text>
+        <Text style={styles.chevron}>⌄</Text>
+      </TouchableOpacity>
+
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={() => setVisible(false)} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{label || 'Select an option'}</Text>
+
+            <FlatList
+              data={options}
+              keyExtractor={(item) => String(item.value)}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.option} onPress={() => selectOption(item)}>
+                  <Text style={styles.optionText}>{item.label}</Text>
+                  {item.value === value && <Text style={styles.selectedMark}>✓</Text>}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
