@@ -39,13 +39,16 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#202934"
       },
+
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
+
     },
 
     "web": {
@@ -57,6 +60,14 @@
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Breeze needs your location in the background to track your shift while you're on a job, including when the app is not in the foreground.",
@@ -66,7 +77,8 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-task-manager"
+      "expo-task-manager",
+      "expo-ignore-battery-optimizations"
     ],
 
     "extra": {
