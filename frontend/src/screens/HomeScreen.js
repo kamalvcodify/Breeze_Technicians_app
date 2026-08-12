@@ -35,22 +35,33 @@ const SERVICES = [
     icon: 'time-outline',
     title: 'Check In / Check Out',
     description: 'Attendance and job-site activity.',
-    enabled: false,
+    screen:'CheckInCheckOut',
+    enabled: true,
   },
   {
-    key: 'rehab-order',
-    icon: 'hammer-outline',
-    title: 'Submit a Rehab Order',
-    description: 'Property rehabilitation work details.',
-    enabled: false,
-  },
+  key: 'rehab-order',
+  icon: 'hammer-outline',
+  title: 'Submit a Rehab Order',
+  description: 'Property rehabilitation work details.',
+  screen: 'SubmitRehabOrder',
+  enabled: true,
+},
   {
     key: 'move-out',
     icon: 'exit-outline',
     title: 'Process a Move Out',
     description: 'Property move-out information.',
-    enabled: false,
+    screen: 'ProcessMoveOut',
+    enabled: true,
   },
+  {
+  key: 'rent-ready-checklist',
+  icon: 'checkmark-done-outline',
+  title: 'Rent Ready Checklist',
+  description: 'Confirm the unit is ready to rent.',
+  screen: 'RentReadyChecklist',
+  enabled: true,
+}
 ];
 
 function getDisplayNameFromEmail(email) {

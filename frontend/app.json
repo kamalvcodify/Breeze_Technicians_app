@@ -28,7 +28,8 @@
           "fetch"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Breeze needs your location in the background to track your shift while you're on a job, including when the app is not in the foreground.",
-        "NSLocationWhenInUseUsageDescription": "Breeze needs your location to confirm you are at the property before starting a shift."
+        "NSLocationWhenInUseUsageDescription": "Breeze needs your location to confirm you are at the property before starting a shift.",
+        "NSCameraUsageDescription": "Breeze needs camera access to scan inventory part QR codes."
       }
     },
 
@@ -46,7 +47,8 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "CAMERA"
       ]
 
     },
@@ -78,7 +80,13 @@
         }
       ],
       "expo-task-manager",
-      "expo-ignore-battery-optimizations"
+      "expo-ignore-battery-optimizations",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Breeze needs camera access to scan inventory part QR codes."
+        }
+      ]
     ],
 
     "extra": {

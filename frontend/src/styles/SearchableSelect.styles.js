@@ -8,6 +8,16 @@ import {
   spacing,
 } from '../theme/colors';
 
+/**
+ * styles/SearchableSelect.styles.js
+ * ----------------------------------------------------------------
+ * modalCard now has overflow:'hidden', and optionsList/
+ * optionsListContent give the FlatList explicit flex sizing so it
+ * scrolls properly WITHIN the modal's maxHeight instead of
+ * overflowing past it - see the comment block in
+ * components/SearchableSelect.js for why this mattered.
+ * ----------------------------------------------------------------
+ */
 export default StyleSheet.create({
   wrapper: {
     width: '100%',
@@ -64,12 +74,6 @@ export default StyleSheet.create({
     marginTop: 2,
   },
 
-  chevron: {
-    color: colors.textMuted,
-    fontSize: 16,
-    marginLeft: spacing.sm,
-  },
-
   errorText: {
     color: colors.error,
     fontSize: 12,
@@ -97,6 +101,7 @@ export default StyleSheet.create({
       colors.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    overflow: 'hidden',
   },
 
   modalHeader: {
@@ -112,12 +117,6 @@ export default StyleSheet.create({
     fontWeight: '700',
   },
 
-  closeText: {
-    color: colors.textMuted,
-    fontSize: 28,
-    lineHeight: 30,
-  },
-
   searchInput: {
     minHeight: 44,
     borderWidth: 1,
@@ -127,6 +126,13 @@ export default StyleSheet.create({
       spacing.md,
     color: colors.text,
     fontSize: 14,
+    marginBottom: spacing.md,
+  },
+
+  hintText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
 
@@ -140,6 +146,17 @@ export default StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     marginLeft: spacing.sm,
+  },
+
+  // Explicit flex so the list scrolls within modalCard's maxHeight
+  // instead of overflowing past it - see the comment block in
+  // SearchableSelect.js.
+  optionsList: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  optionsListContent: {
+    flexGrow: 1,
   },
 
   option: {
@@ -163,13 +180,6 @@ export default StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 3,
-  },
-
-  selectedMark: {
-    color: colors.blue,
-    fontSize: 17,
-    fontWeight: '700',
-    marginLeft: spacing.md,
   },
 
   separator: {

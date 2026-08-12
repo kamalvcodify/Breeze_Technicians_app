@@ -2,17 +2,12 @@ import { StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '../theme/colors';
 
 /**
- * styles/TicketFormSection.styles.js
+ * styles/RehabFormSection.styles.js
  * ----------------------------------------------------------------
- * column: minWidth dropped from 280 -> 260. At 280, a narrow phone
- * (~320px wide, common on older/budget Android devices) leaves only
- * ~40px of margin after the card's own padding before wrapping
- * decisions get tight - that's the cramped feeling in the
- * screenshots. 260 gives more headroom on narrow screens while
- * still comfortably fitting two columns side-by-side once the
- * screen is wide enough (tablets/desktop browser).
- * Added maxWidth to column so on very wide screens each column
- * doesn't stretch uncomfortably wide with sparse content.
+ * Matches TicketFormSection.styles.js exactly (card, headingRow,
+ * kicker, heading, removeText, fields, column) so Submit Rehab
+ * Order looks structurally identical to Submit Work Order,
+ * including the same "additional entry" heading pattern.
  * ----------------------------------------------------------------
  */
 export default StyleSheet.create({
@@ -62,29 +57,5 @@ export default StyleSheet.create({
     minWidth: 260,
     maxWidth: 520,
     paddingHorizontal: spacing.sm,
-  },
-  attachmentNote: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    marginTop: spacing.xs,
-  },
-  attachmentTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  attachmentText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  lookupNote: {
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 17,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.md,
   },
 });

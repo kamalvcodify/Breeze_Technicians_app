@@ -24,20 +24,24 @@ const CHEVRON_ANIMATION_MS = 160;
  * Nav bar shown on every technician/admin screen.
  *
  * IMPORTANT: every top-level nav row (Home, My Assigned Work
- * Orders, Privacy Policy) is built from the SAME row component
- * (DesktopNavRow / MobileNavRow below), whether or not it has a
- * trailing expand icon. Previously "Home" was hand-built with a
- * slightly different structure than the other two rows, which is
- * why it looked inconsistent — now all three literally share one
- * definition, so their height/padding/type styling can't drift
- * apart again.
- *
- * The mobile drawer rows use a FIXED height (not minHeight) in
- * TechnicianHeader.styles.js, and the trailing +/- icon on "Home"
- * gets styles.mobileRowTrailing so it can't push that row taller
- * than "My Assigned Work Orders" / "Privacy Policy".
+ * Orders, Reports, Privacy Policy) is built from the SAME row
+ * component (DesktopNavRow / MobileNavRow below). "Reports" now
+ * follows the exact same expandable-peek-submenu pattern as "Home"
+ * - tapping the label navigates to the Reports landing screen,
+ * tapping the separate chevron/+/- icon toggles a quick-access
+ * dropdown listing all 5 report types directly, so a report can be
+ * opened in one tap from anywhere without going through the
+ * landing grid first.
  * ----------------------------------------------------------------
  */
+const REPORT_LINKS = [
+  { key: 'workOrder', icon: 'clipboard-outline', label: 'Work Order Reports' },
+  { key: 'rehabOrder', icon: 'hammer-outline', label: 'Rehab Order Reports' },
+  { key: 'checkInOut', icon: 'time-outline', label: 'Check In / Check Out Reports' },
+  { key: 'moveOut', icon: 'exit-outline', label: 'Move Out Reports' },
+  { key: 'rentReadyChecklist', icon: 'checkmark-done-outline', label: 'Rent Ready Checklist Reports' },
+];
+
 export default function TechnicianHeader({ navigation, activeRoute, isAdmin = false }) {
   const { width } = useWindowDimensions();
   const { email, logout } = useAuth();
@@ -45,8 +49,10 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [homeMenuOpen, setHomeMenuOpen] = useState(false);
+  const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
 
   const chevronRotation = useRef(new Animated.Value(0)).current;
+  const reportsChevronRotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(chevronRotation, {
@@ -55,6 +61,14 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
       useNativeDriver: true,
     }).start();
   }, [homeMenuOpen, chevronRotation]);
+
+  useEffect(() => {
+    Animated.timing(reportsChevronRotation, {
+      toValue: reportsMenuOpen ? 1 : 0,
+      duration: CHEVRON_ANIMATION_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [reportsMenuOpen, reportsChevronRotation]);
 
   const chevronStyle = {
     transform: [
@@ -67,18 +81,38 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
     ],
   };
 
+  const reportsChevronStyle = {
+    transform: [
+      {
+        rotate: reportsChevronRotation.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['0deg', '180deg'],
+        }),
+      },
+    ],
+  };
+
   const isDesktop = width >= DESKTOP_WIDTH;
   const canGoBack = !!navigation?.canGoBack?.();
 
-  const goTo = (screen) => {
+  const closeAllMenus = () => {
     setMobileMenuOpen(false);
     setHomeMenuOpen(false);
+    setReportsMenuOpen(false);
+  };
+
+  const goTo = (screen) => {
+    closeAllMenus();
     navigation.navigate(screen);
   };
 
+  const goToReport = (reportKey, title) => {
+    closeAllMenus();
+    navigation.navigate('ReportList', { reportKey, title });
+  };
+
   const handleBack = () => {
-    setMobileMenuOpen(false);
-    setHomeMenuOpen(false);
+    closeAllMenus();
     navigation.goBack();
   };
 
@@ -100,9 +134,26 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
         onPress={() => goTo('SubmitWorkOrder')}
         mobile={mobile}
       />
-      <MenuItem icon="time-outline" label="Check In / Check Out" disabled mobile={mobile} />
-      <MenuItem icon="hammer-outline" label="Submit a Rehab Order" disabled mobile={mobile} />
-      <MenuItem icon="exit-outline" label="Process a Move Out" disabled mobile={mobile} />
+      <MenuItem icon="time-outline" label="Check In / Check Out" onPress={() => goTo('CheckInCheckOut')} mobile={mobile} />
+      <MenuItem icon="hammer-outline" label="Submit a Rehab Order" onPress={() => goTo('SubmitRehabOrder')} mobile={mobile} />
+      <MenuItem icon="exit-outline" label="Process a Move Out"  onPress={() => goTo('ProcessMoveOut')} mobile={mobile} />
+      <MenuItem icon="checkmark-done-outline" label="Rent Ready Checklist" onPress={() => goTo('RentReadyChecklist')} mobile={mobile} />
+    </View>
+  );
+
+  // Peek submenu under Reports - jumps straight into a specific
+  // report's list, bypassing the Reports landing grid.
+  const ReportsMenu = ({ mobile = false }) => (
+    <View style={mobile ? styles.mobileSubmenu : styles.desktopDropdown}>
+      {REPORT_LINKS.map((report) => (
+        <MenuItem
+          key={report.key}
+          icon={report.icon}
+          label={report.label}
+          onPress={() => goToReport(report.key, report.label)}
+          mobile={mobile}
+        />
+      ))}
     </View>
   );
 
@@ -145,6 +196,23 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
         <Ionicons name={homeMenuOpen ? 'remove' : 'add'} size={20} color={colors.blue} />
       ) : (
         <Animated.View style={[styles.navChevronWrap, chevronStyle]}>
+          <Ionicons name="chevron-down" size={16} color={colors.textOnDarkMuted} />
+        </Animated.View>
+      )}
+    </TouchableOpacity>
+  );
+
+  const reportsExpandTrailing = (mobile) => (
+    <TouchableOpacity
+      style={mobile ? styles.mobileRowTrailing : undefined}
+      onPress={() => setReportsMenuOpen((value) => !value)}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityLabel="Show report types"
+    >
+      {mobile ? (
+        <Ionicons name={reportsMenuOpen ? 'remove' : 'add'} size={20} color={colors.blue} />
+      ) : (
+        <Animated.View style={[styles.navChevronWrap, reportsChevronStyle]}>
           <Ionicons name="chevron-down" size={16} color={colors.textOnDarkMuted} />
         </Animated.View>
       )}
@@ -204,6 +272,16 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
                   active={activeRoute === 'MyAssignedWorkOrders'}
                   onPress={() => goTo('MyAssignedWorkOrders')}
                 />
+
+                <View>
+                  <DesktopNavRow
+                    label="Reports"
+                    active={activeRoute === 'Reports'}
+                    onPress={() => goTo('Reports')}
+                    trailing={reportsExpandTrailing(false)}
+                  />
+                  {reportsMenuOpen && <ReportsMenu />}
+                </View>
 
                 <DesktopNavRow
                   label="Privacy Policy"
@@ -280,6 +358,13 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
                   label="My Assigned Work Orders"
                   onPress={() => goTo('MyAssignedWorkOrders')}
                 />
+
+                <MobileNavRow
+                  label="Reports"
+                  onPress={() => goTo('Reports')}
+                  trailing={reportsExpandTrailing(true)}
+                />
+                {reportsMenuOpen && <ReportsMenu mobile />}
 
                 <MobileNavRow label="Privacy Policy" onPress={() => goTo('PrivacyPolicy')} />
               </>

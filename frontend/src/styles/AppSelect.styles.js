@@ -37,11 +37,6 @@ export default StyleSheet.create({
   placeholder: {
     color: colors.textMuted,
   },
-  chevron: {
-    color: colors.textMuted,
-    fontSize: 16,
-    marginLeft: spacing.sm,
-  },
   errorText: {
     color: colors.error,
     fontSize: 12,
@@ -71,19 +66,21 @@ export default StyleSheet.create({
     fontWeight: '700',
     marginBottom: spacing.md,
   },
+  // Explicit sizing so the list actually scrolls within modalCard's
+  // maxHeight instead of relying on implicit/undefined sizing.
+  optionsList: {
+    flexGrow: 0,
+  },
   option: {
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   optionText: {
     flex: 1,
     color: colors.text,
     fontSize: 15,
-  },
-  selectedMark: {
-    color: colors.blue,
-    fontWeight: '700',
   },
   separator: {
     height: 1,

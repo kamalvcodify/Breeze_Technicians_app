@@ -1,15 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme/colors';
 
-/**
- * styles/SubmitWorkOrderScreen.styles.js
- * ----------------------------------------------------------------
- * headerBar/headerBarInner/headerTextGroup/headerTitle/
- * headerSubtitle/headerIconBadge match Home / My Assigned Work
- * Orders / Technician Shift / Privacy Policy exactly - this screen
- * was the one still left on the old dark "pageHeader" hero.
- * ----------------------------------------------------------------
- */
 export default StyleSheet.create({
   flex: {
     flex: 1,
@@ -64,8 +55,6 @@ export default StyleSheet.create({
     paddingVertical: spacing.xl,
   },
 
-  // Property-load error banner - was a raw inline hex-color style
-  // object in the screen component; now uses shared theme tokens.
   errorBanner: {
     marginBottom: spacing.lg,
     padding: spacing.md,
@@ -77,30 +66,8 @@ export default StyleSheet.create({
   errorBannerText: {
     color: colors.error,
     fontSize: typography.size.sm,
-    marginBottom: spacing.sm,
-  },
-  errorBannerRetry: {
-    color: colors.blue,
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
   },
 
-  addButton: {
-    minHeight: 50,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.blue,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  addButtonText: {
-    color: colors.blue,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   actions: {
     backgroundColor: colors.surface,
     borderWidth: 1,

@@ -6,9 +6,18 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
+import { colors } from '../theme/colors';
 import styles from '../styles/DateTimeField.styles';
 
+/**
+ * components/DateTimeField.js
+ * ----------------------------------------------------------------
+ * Icons switched from plain text glyphs ("▣" / "◷") to Ionicons,
+ * matching every other icon in the app.
+ * ----------------------------------------------------------------
+ */
 function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -154,9 +163,11 @@ export default function DateTimeField({
               : 'Select time')}
         </Text>
 
-        <Text style={styles.icon}>
-          {mode === 'date' ? '▣' : '◷'}
-        </Text>
+        <Ionicons
+          name={mode === 'date' ? 'calendar-outline' : 'time-outline'}
+          size={17}
+          color={colors.blue}
+        />
       </Pressable>
 
       {!!error && (

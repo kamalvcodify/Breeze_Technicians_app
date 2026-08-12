@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import AppButton from '../components/AppButton';
 import AppPopup from '../components/AppPopup';
@@ -18,6 +19,7 @@ import usePropertyUnitLookups from '../hooks/usePropertyUnitLookups';
 
 import { submitWorkOrder } from '../api/workOrders';
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../theme/colors';
 
 import styles from '../styles/SubmitWorkOrderScreen.styles';
 
@@ -238,37 +240,30 @@ export default function SubmitWorkOrderScreen({ navigation }) {
 
   return (
     <TechnicianLayout navigation={navigation} activeRoute="Home">
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.pageHeader}>
-            <View style={styles.pageHeaderInner}>
-              <Text style={styles.title}>Submit Work Order</Text>
-              <Text style={styles.subtitle}>
-                Complete the required information for each ticket.
-              </Text>
-            </View>
+      <View style={styles.headerBar}>
+        <View style={styles.headerBarInner}>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.headerTitle}>Submit Work Order</Text>
+            <Text style={styles.headerSubtitle}>
+              Complete the required information for each ticket.
+            </Text>
           </View>
 
+          <View style={styles.headerIconBadge}>
+            <Ionicons name="clipboard-outline" size={18} color={colors.blue} />
+          </View>
+        </View>
+      </View>
+
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
             {!!propertyError && (
-              <View
-                style={{
-                  marginBottom: 16,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor: '#C43D3D',
-                  borderRadius: 6,
-                  backgroundColor: '#FFF7F7',
-                }}
-              >
-                <Text style={{ color: '#C43D3D', fontSize: 13, marginBottom: 8 }}>
-                  {propertyError}
-                </Text>
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{propertyError}</Text>
 
                 <TouchableOpacity onPress={() => loadProperties({ forceRefresh: true })}>
-                  <Text style={{ color: '#0876C9', fontSize: 13, fontWeight: '700' }}>
-                    Retry loading properties
-                  </Text>
+                  <Text style={styles.errorBannerRetry}>Retry loading properties</Text>
                 </TouchableOpacity>
               </View>
             )}

@@ -6,6 +6,11 @@ const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const workOrderRoutes = require("./routes/workOrderRoutes");
+const rehabOrderRoutes = require("./routes/rehabOrderRoutes");
+const checkInOutRoutes = require("./routes/checkInOutRoutes");
+const moveOutRoutes = require("./routes/moveOutRoutes");
+const rentReadyChecklistRoutes = require("./routes/rentReadyChecklistRoutes");
+const reportsRoutes = require("./routes/reportsRoutes");
 const trackingRoutes = require("./routes/trackingRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
@@ -26,6 +31,11 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/work-orders", workOrderRoutes);
+app.use("/api/rehab-orders", rehabOrderRoutes);
+app.use("/api/check-in-out", checkInOutRoutes);
+app.use("/api/move-out", moveOutRoutes);
+app.use("/api/rent-ready-checklist", rentReadyChecklistRoutes);
+app.use("/api/reports", reportsRoutes);
 app.use("/api/tracking", trackingRoutes);
 
 app.use((req, res) => {

@@ -2,12 +2,10 @@ import { StyleSheet } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme/colors';
 
 /**
- * styles/SubmitWorkOrderScreen.styles.js
+ * styles/SubmitRehabOrderScreen.styles.js
  * ----------------------------------------------------------------
- * headerBar/headerBarInner/headerTextGroup/headerTitle/
- * headerSubtitle/headerIconBadge match Home / My Assigned Work
- * Orders / Technician Shift / Privacy Policy exactly - this screen
- * was the one still left on the old dark "pageHeader" hero.
+ * Identical structure to SubmitWorkOrderScreen.styles.js - same
+ * headerBar pattern, same content/errorBanner/actions treatment.
  * ----------------------------------------------------------------
  */
 export default StyleSheet.create({
@@ -64,8 +62,6 @@ export default StyleSheet.create({
     paddingVertical: spacing.xl,
   },
 
-  // Property-load error banner - was a raw inline hex-color style
-  // object in the screen component; now uses shared theme tokens.
   errorBanner: {
     marginBottom: spacing.lg,
     padding: spacing.md,
@@ -101,6 +97,7 @@ export default StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+
   actions: {
     backgroundColor: colors.surface,
     borderWidth: 1,

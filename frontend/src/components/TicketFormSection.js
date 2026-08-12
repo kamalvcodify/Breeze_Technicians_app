@@ -39,13 +39,21 @@ const JOB_TYPE_OPTIONS = [
     value: 'Inspection',
   },
   {
-    label: 'Repair',
-    value: 'Repair',
+    label: 'Rehab',
+    value: 'Rehab',
   },
   {
-    label: 'Emergency',
-    value: 'Emergency',
+    label: 'Store Run',
+    value: 'Store Run',
   },
+    {
+    label: 'Section 8',
+    value: 'Section 8',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
+  }
 ];
 
 const STATUS_OPTIONS = [
@@ -58,7 +66,7 @@ const STATUS_OPTIONS = [
     value: 'Working on it',
   },
   {
-    label: 'Completed',
+    label: 'Closed - Ticket Resolved',
     value: 'Completed',
   },
   {
@@ -67,6 +75,15 @@ const STATUS_OPTIONS = [
   },
 ];
 
+/**
+ * components/TicketFormSection.js
+ * ----------------------------------------------------------------
+ * Field layout for one Work Order ticket. This screen/component is
+ * the reference pattern for other order-submission forms in the
+ * app (e.g. Rehab Order) - it should not be changed to match those
+ * other forms; they should be changed to match this one.
+ * ----------------------------------------------------------------
+ */
 export default function TicketFormSection({
   ticket,
   ticketNumber,

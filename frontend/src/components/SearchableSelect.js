@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import {
   colors,
@@ -22,7 +23,35 @@ import {
 import styles from '../styles/SearchableSelect.styles';
 
 const REMOTE_SEARCH_DELAY = 500;
+const REMOTE_SEARCH_MIN_LENGTH = 2;
 
+/**
+ * components/SearchableSelect.js
+ * ----------------------------------------------------------------
+ * Two real fixes here, not just styling:
+ *
+ * 1. The options FlatList had no sizing of its own, and modalCard
+ *    had no overflow:'hidden'. With a long list (many properties/
+ *    units), results past the modal's maxHeight would simply
+ *    overflow the card and become untappable, with no scrolling -
+ *    this was very likely THE "unresponsive" bug on Property/Unit
+ *    specifically, since those are the two fields most likely to
+ *    have long lists. Fixed by giving the FlatList explicit flex
+ *    and modalCard overflow:'hidden'.
+ *
+ * 2. Remote search used to bail out entirely if there was ANY local
+ *    match, even a loose/wrong one - meaning typing could get
+ *    "stuck" showing an incomplete local result and never actually
+ *    ask the server for the real match. Now it always fires the
+ *    remote search on a debounce once the query is long enough,
+ *    regardless of what's already loaded locally, so what's shown
+ *    is never artificially capped to whatever happened to load
+ *    first.
+ *
+ * Chevron/close/checkmark switched from plain text glyphs to
+ * Ionicons for consistency with the rest of the app.
+ * ----------------------------------------------------------------
+ */
 export default function SearchableSelect({
   label,
   value,
@@ -90,13 +119,14 @@ export default function SearchableSelect({
     const cleanQuery =
       query.trim();
 
-    if (
-      cleanQuery.length < 2 ||
-      filteredOptions.length > 0
-    ) {
+    if (cleanQuery.length < REMOTE_SEARCH_MIN_LENGTH) {
       return undefined;
     }
 
+    // Always debounce-search remotely once the query is long
+    // enough, regardless of how many (possibly incomplete or
+    // loosely-matched) local options already exist - see the
+    // comment block above for why this used to get stuck.
     const timer =
       setTimeout(async () => {
         setRemoteSearching(true);
@@ -115,7 +145,6 @@ export default function SearchableSelect({
   }, [
     query,
     visible,
-    filteredOptions.length,
     onRemoteSearch,
   ]);
 
@@ -136,6 +165,11 @@ export default function SearchableSelect({
     setQuery('');
   };
 
+  const showRemoteHint =
+    !!onRemoteSearch &&
+    query.trim().length > 0 &&
+    query.trim().length < REMOTE_SEARCH_MIN_LENGTH;
+
   return (
     <View style={styles.wrapper}>
       {!!label && (
@@ -154,6 +188,7 @@ export default function SearchableSelect({
         ]}
         onPress={openSelect}
         disabled={disabled}
+        activeOpacity={0.7}
       >
         <View style={styles.selectedText}>
           <Text
@@ -188,9 +223,7 @@ export default function SearchableSelect({
             color={colors.blue}
           />
         ) : (
-          <Text style={styles.chevron}>
-            ⌄
-          </Text>
+          <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
         )}
       </TouchableOpacity>
 
@@ -226,10 +259,9 @@ export default function SearchableSelect({
                 onPress={() =>
                   setVisible(false)
                 }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.closeText}>
-                  ×
-                </Text>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -242,7 +274,14 @@ export default function SearchableSelect({
               }
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="search"
             />
+
+            {showRemoteHint && (
+              <Text style={styles.hintText}>
+                Keep typing - type at least {REMOTE_SEARCH_MIN_LENGTH} characters to search.
+              </Text>
+            )}
 
             {(loading ||
               remoteSearching) && (
@@ -271,6 +310,8 @@ export default function SearchableSelect({
               keyExtractor={(item) =>
                 String(item.value)
               }
+              style={styles.optionsList}
+              contentContainerStyle={styles.optionsListContent}
               keyboardShouldPersistTaps="handled"
               ItemSeparatorComponent={() => (
                 <View
@@ -285,6 +326,7 @@ export default function SearchableSelect({
                   onPress={() =>
                     selectOption(item)
                   }
+                  activeOpacity={0.7}
                 >
                   <View
                     style={
@@ -313,13 +355,7 @@ export default function SearchableSelect({
 
                   {item.value ===
                     value && (
-                    <Text
-                      style={
-                        styles.selectedMark
-                      }
-                    >
-                      ✓
-                    </Text>
+                    <Ionicons name="checkmark" size={18} color={colors.blue} />
                   )}
                 </TouchableOpacity>
               )}
