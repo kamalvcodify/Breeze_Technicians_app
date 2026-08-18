@@ -10,6 +10,11 @@ function cleanText(value) {
  * The checklist object is passed through as-is (each key is
  * already a real Zoho field API name) - only its values get
  * coerced to plain booleans here for safety, not renamed.
+ *
+ * FIX: unitName was never read here - added alongside unit (the
+ * ID, kept for reference). unitName is the display NAME that
+ * actually gets sent to Zoho - see
+ * zohoRentReadyChecklistService.js.
  * ----------------------------------------------------------------
  */
 function normalizeChecklist(checklist) {
@@ -30,6 +35,7 @@ function normalizeEntry(entry) {
   return {
     property: cleanText(entry.property),
     unit: cleanText(entry.unit),
+    unitName: cleanText(entry.unitName),
     technicianName: cleanText(entry.technicianName),
     rentReady: cleanText(entry.rentReady),
     dateTime: cleanText(entry.dateTime),

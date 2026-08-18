@@ -1,6 +1,4 @@
-const zohoMoveOutService = require(
-  "../services/zohoMoveOutService"
-);
+const zohoMoveOutService = require("../services/zohoMoveOutService");
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -9,20 +7,76 @@ function cleanText(value) {
 /**
  * controllers/moveOutController.js
  * ----------------------------------------------------------------
- * Mirrors checkInOutController.js's structure. Attachments (if the
- * frontend ever sends them) are accepted without error but are not
- * forwarded to Zoho - see zohoMoveOutService.js.
+ * UPDATED for multipart/form-data. Previously read fields directly
+ * off req.body (a flat JSON body). Now that the frontend sends a
+ * real multipart request, the entry's fields arrive as a single
+ * JSON STRING under req.body.entry - parseEntry() below JSON.parses
+ * it, same pattern as workOrderController.js's parseTickets().
+ *
+ * NEW: getAttachments() extracts real uploaded files from req.files
+ * (populated by multer - see moveOutRoutes.js), matching field
+ * names `attachment_{fileIndex}` (no per-ticket prefix, since this
+ * form is single-entry).
  * ----------------------------------------------------------------
  */
-function normalizeEntry(entry) {
+function parseEntry(req) {
+  if (!req.body) {
+    const error = new Error("The request body is missing.");
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rawEntry = req.body.entry;
+
+  if (rawEntry && typeof rawEntry === "object") {
+    return rawEntry;
+  }
+
+  if (typeof rawEntry === "string") {
+    try {
+      return JSON.parse(rawEntry);
+    } catch (error) {
+      const parseError = new Error("The entry field contains invalid JSON.");
+
+      parseError.statusCode = 400;
+      throw parseError;
+    }
+  }
+
+  // Fallback: plain JSON body (older clients / direct API testing).
+  return req.body;
+}
+
+function getAttachments(files) {
+  if (!Array.isArray(files)) {
+    return [];
+  }
+
+  const prefix = "attachment_";
+
+  return files
+    .filter((file) => file.fieldname.startsWith(prefix))
+    .map((file) => ({
+      fieldName: file.fieldname,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      buffer: file.buffer,
+    }));
+}
+
+function normalizeEntry(entry, attachments) {
   return {
     technicianName: cleanText(entry.technicianName),
     property: cleanText(entry.property),
     email: cleanText(entry.email),
     unit: cleanText(entry.unit),
+    unitName: cleanText(entry.unitName),
     finalStatus: cleanText(entry.finalStatus),
     dateOfInspection: cleanText(entry.dateOfInspection),
     notes: cleanText(entry.notes),
+    attachments,
   };
 }
 
@@ -40,13 +94,9 @@ function validateEntry(entry) {
 }
 
 async function submitMoveOut(req, res) {
-  if (!req.body) {
-    return res.status(400).json({
-      detail: "The request body is missing.",
-    });
-  }
+  const rawEntry = parseEntry(req);
 
-  const entry = normalizeEntry(req.body);
+  const entry = normalizeEntry(rawEntry, getAttachments(req.files));
 
   const validationErrors = validateEntry(entry);
 
@@ -64,6 +114,7 @@ async function submitMoveOut(req, res) {
   return res.status(201).json({
     detail: "The move-out checklist was submitted successfully.",
     recordId: result.recordId,
+    attachmentUploadStatus: result.attachmentUploadStatus,
     zoho: result.zohoResponse,
   });
 }

@@ -22,6 +22,8 @@ import { colors } from '../theme/colors';
 
 import styles from '../styles/CheckInCheckOutScreen.styles';
 
+import { submitWithOfflineFallback } from '../utils/submitWithOfflineFallback';
+
 /**
  * screens/CheckInCheckOutScreen.js
  * ----------------------------------------------------------------
@@ -37,7 +39,7 @@ import styles from '../styles/CheckInCheckOutScreen.styles';
  * Order's Unit field bug).
  * ----------------------------------------------------------------
  */
-function createEmptyEntry(technicianName = '', email = '') {
+function createEmptyEntry(technicianName = '', email = '', city = '') {
   return {
     qrScanValue: '',
     partCode: '',
@@ -45,12 +47,13 @@ function createEmptyEntry(technicianName = '', email = '') {
     action: '',
     quantityDesired: '',
     quantityReturned: '',
-    city: 'Youngstown',
+    city: city || 'Youngstown',
     jobType: '',
     technicianName,
     property: '',
     workOrder: '',
     rehabUnit: '',
+    rehabUnitName: '',
     dateTime: new Date().toISOString(),
     notes: '',
     email,
@@ -96,7 +99,7 @@ function buildErrorMessage(error) {
 }
 
 export default function CheckInCheckOutScreen({ navigation }) {
-  const { email } = useAuth();
+  const { email, name, city } = useAuth();
 
   const {
     properties,
@@ -112,7 +115,7 @@ export default function CheckInCheckOutScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [entry, setEntry] = useState(createEmptyEntry(email || '', email || ''));
+  const [entry, setEntry] = useState(createEmptyEntry(name || '', email || '', city || ''));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({
@@ -131,7 +134,7 @@ export default function CheckInCheckOutScreen({ navigation }) {
   };
 
   const resetForm = () => {
-    setEntry(createEmptyEntry(email || '', email || ''));
+    setEntry(createEmptyEntry(name || '', email || '', city || ''));
     setErrors({});
   };
 
@@ -152,20 +155,39 @@ export default function CheckInCheckOutScreen({ navigation }) {
     setSubmitting(true);
 
     try {
-      // Rehab Unit is intentionally NOT included here - see the
-      // comment block at the top of this file.
-      const { rehabUnit, ...payload } = entry;
-
-      const response = await submitCheckInOut({
-        ...payload,
+      // Rehab Unit is now wired up like every other form - the
+      // display NAME (rehabUnitName) is what actually reaches
+      // Zoho; rehabUnit (the ID) is sent along too but not used
+      // by the backend, same pattern as the other 4 forms.
+      const payload = {
+        ...entry,
         technicianName: entry.technicianName.trim(),
         email: entry.email.trim(),
+      };
+
+      const result = await submitWithOfflineFallback({
+        formType: 'checkInOut',
+        payload,
+        submitFn: submitCheckInOut,
       });
+
+      if (result.offline) {
+        setPopup({
+          visible: true,
+          title: 'Saved offline',
+          message:
+            "No connection right now — this will sync automatically once you're back online.",
+          success: true,
+        });
+
+        setSubmitting(false);
+        return;
+      }
 
       setPopup({
         visible: true,
         title: 'Submitted',
-        message: response?.data?.detail || 'The entry was submitted successfully.',
+        message: result.response?.data?.detail || 'The entry was submitted successfully.',
         success: true,
       });
     } catch (error) {

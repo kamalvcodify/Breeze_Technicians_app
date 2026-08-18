@@ -6,6 +6,13 @@ import {
   spacing,
 } from '../theme/colors';
 
+/**
+ * styles/AttachmentPicker.styles.js
+ * ----------------------------------------------------------------
+ * actionButtonDisabled/actionTextDisabled/limitText added for the
+ * new max-10-photos limit behavior.
+ * ----------------------------------------------------------------
+ */
 export default StyleSheet.create({
   wrapper: {
     backgroundColor: colors.surfaceMuted,
@@ -47,10 +54,25 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
 
+  actionButtonDisabled: {
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+
   actionText: {
     color: colors.blue,
     fontSize: 13,
     fontWeight: '700',
+  },
+
+  actionTextDisabled: {
+    color: colors.textFaint,
+  },
+
+  limitText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginBottom: spacing.sm,
   },
 
   fileRow: {

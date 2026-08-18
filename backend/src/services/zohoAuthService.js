@@ -48,5 +48,6 @@ async function getAccessToken() {
 
   return cachedToken;
 }
-
+x=getAccessToken()
+console.log(x)
 module.exports = { getAccessToken };

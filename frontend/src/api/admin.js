@@ -1,4 +1,5 @@
 import apiClient from './client';
+export const addUser = ({ email, isAdmin, name, city }) =>
+  apiClient.post('/admin/users', { email, isAdmin, name, city });
 
-export const addUser = (email, isAdmin) => apiClient.post('/admin/users', { email, isAdmin });
 export const listUsers = () => apiClient.get('/admin/users');

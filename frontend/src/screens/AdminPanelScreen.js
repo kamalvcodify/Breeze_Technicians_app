@@ -12,21 +12,34 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import AppInput from '../components/AppInput';
+import AppSelect from '../components/AppSelect';
 import AppButton from '../components/AppButton';
 import TechnicianLayout from '../components/TechnicianLayout';
 
 import { addUser, listUsers } from '../api/admin';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
+import { CITY_OPTIONS } from '../constants/cityOptions';
 
 import styles from '../styles/AdminPanelScreen.styles';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * screens/AdminPanelScreen.js
+ * ----------------------------------------------------------------
+ * Header now uses the same headerBar/headerBarInner/headerTextGroup
+ * /headerIconBadge structure as every other screen (Home, Reports,
+ * all 5 forms), replacing the old bespoke "ADMINISTRATOR eyebrow +
+ * big title" layout. No other structural change.
+ * ----------------------------------------------------------------
+ */
 export default function AdminPanelScreen({ navigation }) {
   const { email: adminEmail } = useAuth();
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -61,21 +74,43 @@ export default function AdminPanelScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setCity('');
+    setIsAdminUser(false);
+  };
+
   const handleAddUser = async () => {
     setFormError('');
     setFormSuccess('');
+
+    if (!name.trim()) {
+      setFormError('Please enter the technician\u2019s name.');
+      return;
+    }
 
     if (!isValidEmail(email)) {
       setFormError('Please enter a valid email address.');
       return;
     }
 
+    if (!city) {
+      setFormError('Please select a city.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const response = await addUser(email.trim().toLowerCase(), isAdminUser);
+      const response = await addUser({
+        email: email.trim().toLowerCase(),
+        isAdmin: isAdminUser,
+        name: name.trim(),
+        city,
+      });
+
       setFormSuccess(response.data.detail || 'User added successfully.');
-      setEmail('');
-      setIsAdminUser(false);
+      resetForm();
       await fetchUsers();
     } catch (err) {
       const message = err?.response?.data?.detail || 'Could not add user. Please try again.';
@@ -87,6 +122,19 @@ export default function AdminPanelScreen({ navigation }) {
 
   return (
     <TechnicianLayout navigation={navigation} isAdmin>
+      <View style={styles.headerBar}>
+        <View style={styles.headerBarInner}>
+          <View style={styles.headerTextGroup}>
+            <Text style={styles.headerTitle}>Admin Panel</Text>
+            <Text style={styles.headerSubtitle}>Signed in as {adminEmail}</Text>
+          </View>
+
+          <View style={styles.headerIconBadge}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.blue} />
+          </View>
+        </View>
+      </View>
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -96,14 +144,6 @@ export default function AdminPanelScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
-          <View style={styles.pageHeader}>
-            <View style={styles.pageHeaderInner}>
-              <Text style={styles.headerEyebrow}>ADMINISTRATOR</Text>
-              <Text style={styles.headerTitle}>Admin Panel</Text>
-              <Text style={styles.headerSubtitle}>Signed in as {adminEmail}</Text>
-            </View>
-          </View>
-
           <View style={styles.content}>
             <View style={styles.card}>
               <View style={styles.cardTitleRow}>
@@ -117,11 +157,26 @@ export default function AdminPanelScreen({ navigation }) {
               </Text>
 
               <AppInput
+                label="Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+              />
+
+              <AppInput
                 label="Email"
                 value={email}
                 onChangeText={setEmail}
                 placeholder="technician@example.com"
                 keyboardType="email-address"
+              />
+
+              <AppSelect
+                label="City"
+                value={city}
+                options={CITY_OPTIONS}
+                onChange={setCity}
+                placeholder="Select city"
               />
 
               <View style={styles.switchRow}>
@@ -175,7 +230,16 @@ export default function AdminPanelScreen({ navigation }) {
                   ItemSeparatorComponent={() => <View style={styles.separator} />}
                   renderItem={({ item }) => (
                     <View style={styles.userRow}>
-                      <Text style={styles.userEmail}>{item.email}</Text>
+                      <View style={styles.userInfo}>
+                        <Text style={styles.userName} numberOfLines={1}>
+                          {item.name || item.email}
+                        </Text>
+                        <Text style={styles.userMeta} numberOfLines={1}>
+                          {item.email}
+                          {item.city ? `  \u00b7  ${item.city}` : ''}
+                        </Text>
+                      </View>
+
                       <View style={[styles.badge, item.isAdmin ? styles.badgeAdmin : styles.badgeTech]}>
                         <Ionicons
                           name={item.isAdmin ? 'shield-checkmark' : 'construct-outline'}

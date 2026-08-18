@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -23,6 +24,15 @@ const PROPERTY_CACHE_KEY =
 function getUnitCacheKey(propertyId) {
   return `breeze_crm_units_${propertyId}_v1`;
 }
+
+/*
+ * Background unit-prefetch tuning. Staggered (not all at once) so
+ * a technician with many properties doesn't fire off dozens of
+ * simultaneous API calls the moment the property list loads - this
+ * runs quietly in the background while they're using the app, so
+ * there is no rush.
+ */
+const UNIT_PREFETCH_STAGGER_MS = 400;
 
 function mapProperty(record) {
   return {
@@ -91,6 +101,13 @@ export default function usePropertyUnitLookups() {
     propertyError,
     setPropertyError,
   ] = useState('');
+
+  // Tracks which property IDs the background prefetch has already
+  // handled (attempted or succeeded), so it never re-runs for the
+  // same property twice within one app session.
+  const prefetchedPropertyIdsRef = useRef(new Set());
+
+  const loadUnitsRef = useRef(null);
 
   const loadProperties =
     useCallback(async ({
@@ -179,14 +196,19 @@ export default function usePropertyUnitLookups() {
           );
 
         /*
-         * Avoid a CRM API call when the
-         * requested records already exist
-         * in the downloaded 200 records.
+         * FIX: this used to return localMatches immediately
+         * whenever ANY loosely-matching property already existed
+         * in the currently-loaded list, WITHOUT ever calling the
+         * real remote search API - meaning a genuinely different
+         * property elsewhere in Zoho (outside the first ~200
+         * loaded records) could never be found if something else
+         * already-loaded happened to loosely match the typed text
+         * first. Remote search now always runs once the query is
+         * long enough, regardless of local matches - local matches
+         * are still returned instantly for a snappy first paint,
+         * but the real search always follows up and merges in
+         * whatever Zoho actually has.
          */
-        if (localMatches.length > 0) {
-          return localMatches;
-        }
-
         try {
           const response =
             await searchProperties(
@@ -216,7 +238,14 @@ export default function usePropertyUnitLookups() {
             }
           );
 
-          return remoteProperties;
+          /*
+           * Return whichever result set is more complete - if the
+           * remote search found real matches, prefer those over
+           * the local-only guess from before the call resolved.
+           */
+          return remoteProperties.length > 0
+            ? remoteProperties
+            : localMatches;
         } catch (error) {
           console.warn(
             '[Property search] Remote search failed:',
@@ -224,7 +253,10 @@ export default function usePropertyUnitLookups() {
             error.message
           );
 
-          return [];
+          // If the remote call itself fails (e.g. genuinely
+          // offline), fall back to whatever was found locally
+          // rather than showing nothing at all.
+          return localMatches;
         }
       },
       [properties]
@@ -328,6 +360,64 @@ export default function usePropertyUnitLookups() {
       [unitsByProperty]
     );
 
+  // Keep a ref to the latest loadUnits so the background prefetch
+  // effect below doesn't need it in its dependency array (which
+  // would otherwise re-trigger the whole prefetch loop every time
+  // unitsByProperty changes, i.e. after every single unit fetch).
+  loadUnitsRef.current = loadUnits;
+
+  /*
+   * BACKGROUND UNIT PREFETCH FOR OFFLINE USE
+   * ------------------------------------------------------------
+   * Once the property list is available (from cache or a fresh
+   * fetch), quietly walk through every property NOT already
+   * prefetched this session and load+cache its units - one at a
+   * time, staggered, entirely in the background.
+   *
+   * NOTE: this only prefetches units for whatever IS in the
+   * `properties` list - if the backend's property list itself is
+   * capped to a single page, any properties beyond that page are
+   * outside what this can help with. That would need changes to
+   * api/workOrderLookups.js and the backend lookup
+   * controller/service, not this file.
+   * ------------------------------------------------------------
+   */
+  useEffect(() => {
+    if (properties.length === 0) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const propertiesToPrefetch = properties.filter(
+      (property) => !prefetchedPropertyIdsRef.current.has(property.value)
+    );
+
+    if (propertiesToPrefetch.length === 0) {
+      return undefined;
+    }
+
+    (async () => {
+      for (const property of propertiesToPrefetch) {
+        if (cancelled) {
+          return;
+        }
+
+        prefetchedPropertyIdsRef.current.add(property.value);
+
+        // eslint-disable-next-line no-await-in-loop
+        await loadUnitsRef.current(property.value);
+
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, UNIT_PREFETCH_STAGGER_MS));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [properties]);
+
   const searchRemoteUnits =
     useCallback(
       async (
@@ -360,10 +450,9 @@ export default function usePropertyUnitLookups() {
                 )
           );
 
-        if (localMatches.length > 0) {
-          return localMatches;
-        }
-
+        // Same fix as searchRemoteProperties above - always run
+        // the real remote search, don't stop early just because
+        // something already-loaded loosely matched first.
         try {
           const response =
             await searchUnitsByProperty(
@@ -401,7 +490,9 @@ export default function usePropertyUnitLookups() {
             }
           );
 
-          return remoteUnits;
+          return remoteUnits.length > 0
+            ? remoteUnits
+            : localMatches;
         } catch (error) {
           console.warn(
             '[Unit search] Remote search failed:',
@@ -409,7 +500,7 @@ export default function usePropertyUnitLookups() {
             error.message
           );
 
-          return [];
+          return localMatches;
         }
       },
       [unitsByProperty]

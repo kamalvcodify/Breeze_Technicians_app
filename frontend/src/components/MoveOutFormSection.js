@@ -23,6 +23,10 @@ import styles from '../styles/MoveOutFormSection.styles';
  * Zoho yet - same treatment as Work Order/Rehab Order attachments
  * and Check In/Check Out's QR field. See the screen for where the
  * payload is built.
+ *
+ * handleUnitChange added - Zoho's Unit field expects the display
+ * NAME, not the lookup ID (this fix already existed in
+ * RehabFormSection.js, but was missing here).
  * ----------------------------------------------------------------
  */
 const FINAL_STATUS_OPTIONS = [
@@ -52,8 +56,18 @@ export default function MoveOutFormSection({
   const handlePropertyChange = (propertyId) => {
     // Clear the existing Unit because it may belong to the
     // previously selected Property - same pattern as the other forms.
-    onChange({ ...entry, property: propertyId, unit: '' });
+    onChange({ ...entry, property: propertyId, unit: '', unitName: '' });
     onPropertySelected(propertyId);
+  };
+
+  const handleUnitChange = (unitId) => {
+    const selectedUnit = unitOptions.find((option) => option.value === unitId);
+
+    onChange({
+      ...entry,
+      unit: unitId,
+      unitName: selectedUnit?.label || '',
+    });
   };
 
   return (
@@ -128,7 +142,7 @@ export default function MoveOutFormSection({
             emptyMessage={
               entry.property ? 'No units found for this property.' : 'Select a property first.'
             }
-            onChange={(value) => updateField('unit', value)}
+            onChange={handleUnitChange}
             onRemoteSearch={(query) => onUnitSearch(entry.property, query)}
           />
 

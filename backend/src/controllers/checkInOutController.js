@@ -9,11 +9,9 @@ function cleanText(value) {
 /**
  * controllers/checkInOutController.js
  * ----------------------------------------------------------------
- * Now calls zohoCheckInOutService.createCheckInOutEntry() instead
- * of just console.logging - same pattern as
- * workOrderController.js / rehabOrderController.js. Rehab Unit
- * (entry.rehabUnit, if the frontend ever sends it) is accepted here
- * without error but is not forwarded to Zoho - see
+ * FIX: rehabUnitName was never read here at all - added alongside
+ * rehabUnit (the ID, kept for reference/future use). rehabUnitName
+ * is the display NAME that actually gets sent to Zoho - see
  * zohoCheckInOutService.js.
  * ----------------------------------------------------------------
  */
@@ -29,6 +27,8 @@ function normalizeEntry(entry) {
     jobType: cleanText(entry.jobType),
     technicianName: cleanText(entry.technicianName),
     property: cleanText(entry.property),
+    rehabUnit: cleanText(entry.rehabUnit),
+    rehabUnitName: cleanText(entry.rehabUnitName),
     workOrder: cleanText(entry.workOrder),
     dateTime: cleanText(entry.dateTime),
     notes: cleanText(entry.notes),

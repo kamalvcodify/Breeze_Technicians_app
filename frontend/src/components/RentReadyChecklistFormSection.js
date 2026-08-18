@@ -12,13 +12,22 @@ import styles from "../styles/RentReadyChecklistFormSection.styles";
 /**
  * components/RentReadyChecklistFormSection.js
  * ----------------------------------------------------------------
- * Single-entry form (no heading/kicker/Remove row, same as Check
- * In/Check Out and Move Out). Top fields match the screenshot's
- * two-column layout: Property/Unit/Technician Name on the left,
- * Rent Ready/Date-Time/Notes on the right. Email isn't visible in
- * the screenshot but was given as a required API field, so it's
- * added at the end of the right column, prefilled like every other
- * form's Email field.
+ * NEW: each section now has a master "select all" checkbox next to
+ * its title. Checking it ticks every item in that section at once;
+ * unchecking it clears every item in that section at once.
+ * Individual items underneath remain fully editable afterward
+ * either way (the master checkbox is just a convenience toggle,
+ * not a lock).
+ *
+ * The master checkbox's own checked state reflects whether ALL
+ * items in that section are currently checked - if you manually
+ * check all 5 items one by one, the master checkbox shows checked
+ * too, and vice versa.
+ *
+ * This is deliberately an APP-ONLY convenience feature - per
+ * instructions, Zoho/the CRM only ever receives the individual
+ * item values, exactly as before. No backend change needed for
+ * this at all.
  *
  * Checklist item KEYS below are used AS-IS as the Zoho field API
  * names (matching exactly what was given) - the backend sends
@@ -180,10 +189,17 @@ const CHECKLIST_SECTIONS = [
 
 export { CHECKLIST_SECTIONS };
 
-function ChecklistSection({ title, items, checklist, onToggle }) {
+function ChecklistSection({ title, items, checklist, onToggle, onToggleSection }) {
+  const allChecked = items.every((item) => !!checklist[item.key]);
+
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <AppCheckbox
+        label={title}
+        labelStyle={styles.sectionTitle}
+        checked={allChecked}
+        onChange={(checked) => onToggleSection(items, checked)}
+      />
       <View style={styles.sectionDivider} />
 
       <View style={styles.checklistGrid}>
@@ -231,6 +247,26 @@ export default function RentReadyChecklistFormSection({
     onChange({
       ...entry,
       checklist: { ...entry.checklist, [key]: checked },
+    });
+  };
+
+  /**
+   * Sets every item in one section to the same checked value at
+   * once, in a single state update (rather than calling
+   * toggleChecklistItem once per item, which would cause 5+
+   * separate re-renders from stale closures over the same
+   * entry.checklist snapshot).
+   */
+  const toggleSection = (items, checked) => {
+    const updatedChecklist = { ...entry.checklist };
+
+    items.forEach((item) => {
+      updatedChecklist[item.key] = checked;
+    });
+
+    onChange({
+      ...entry,
+      checklist: updatedChecklist,
     });
   };
 
@@ -330,6 +366,7 @@ export default function RentReadyChecklistFormSection({
           items={section.items}
           checklist={entry.checklist}
           onToggle={toggleChecklistItem}
+          onToggleSection={toggleSection}
         />
       ))}
     </View>

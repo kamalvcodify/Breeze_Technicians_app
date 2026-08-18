@@ -24,6 +24,8 @@ import { colors } from '../theme/colors';
 
 import styles from '../styles/RentReadyChecklistScreen.styles';
 
+import { submitWithOfflineFallback } from '../utils/submitWithOfflineFallback';
+
 /**
  * screens/RentReadyChecklistScreen.js
  * ----------------------------------------------------------------
@@ -49,6 +51,7 @@ function createEmptyEntry(technicianName = '', email = '') {
   return {
     property: '',
     unit: '',
+    unitName: '',
     technicianName,
     rentReady: '',
     dateTime: new Date().toISOString(),
@@ -94,7 +97,7 @@ function buildErrorMessage(error) {
 }
 
 export default function RentReadyChecklistScreen({ navigation }) {
-  const { email } = useAuth();
+  const { email, name } = useAuth();
 
   const {
     properties,
@@ -110,7 +113,7 @@ export default function RentReadyChecklistScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [entry, setEntry] = useState(createEmptyEntry(email || '', email || ''));
+  const [entry, setEntry] = useState(createEmptyEntry(name || '', email || ''));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({
@@ -129,7 +132,7 @@ export default function RentReadyChecklistScreen({ navigation }) {
   };
 
   const resetForm = () => {
-    setEntry(createEmptyEntry(email || '', email || ''));
+    setEntry(createEmptyEntry(name || '', email || ''));
     setErrors({});
   };
 
@@ -157,12 +160,29 @@ export default function RentReadyChecklistScreen({ navigation }) {
         notes: entry.notes.trim(),
       };
 
-      const response = await submitRentReadyChecklist(payload);
+      const result = await submitWithOfflineFallback({
+        formType: 'rentReadyChecklist',
+        payload,
+        submitFn: submitRentReadyChecklist,
+      });
+
+      if (result.offline) {
+        setPopup({
+          visible: true,
+          title: 'Saved offline',
+          message:
+            "No connection right now — this will sync automatically once you're back online.",
+          success: true,
+        });
+
+        setSubmitting(false);
+        return;
+      }
 
       setPopup({
         visible: true,
         title: 'Checklist submitted',
-        message: response?.data?.detail || 'The Rent Ready Checklist was submitted successfully.',
+        message: result.response?.data?.detail || 'The Rent Ready Checklist was submitted successfully.',
         success: true,
       });
     } catch (error) {

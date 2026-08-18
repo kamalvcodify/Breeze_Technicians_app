@@ -22,6 +22,8 @@ import { colors } from '../theme/colors';
 
 import styles from '../styles/ProcessMoveOutScreen.styles';
 
+import { submitWithOfflineFallback } from '../utils/submitWithOfflineFallback';
+
 /**
  * screens/ProcessMoveOutScreen.js
  * ----------------------------------------------------------------
@@ -45,6 +47,7 @@ function createEmptyEntry(technicianName = '', email = '') {
     notes: '',
     finalStatus: '',
     unit: '',
+    unitName: '',
     dateOfInspection: getToday(),
     attachments: [],
   };
@@ -86,7 +89,7 @@ function buildErrorMessage(error) {
 }
 
 export default function ProcessMoveOutScreen({ navigation }) {
-  const { email } = useAuth();
+  const { email, name } = useAuth();
 
   const {
     properties,
@@ -102,7 +105,7 @@ export default function ProcessMoveOutScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [entry, setEntry] = useState(createEmptyEntry(email || '', email || ''));
+  const [entry, setEntry] = useState(createEmptyEntry(name || '', email || ''));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({
@@ -121,7 +124,7 @@ export default function ProcessMoveOutScreen({ navigation }) {
   };
 
   const resetForm = () => {
-    setEntry(createEmptyEntry(email || '', email || ''));
+    setEntry(createEmptyEntry(name || '', email || ''));
     setErrors({});
   };
 
@@ -142,21 +145,36 @@ export default function ProcessMoveOutScreen({ navigation }) {
     setSubmitting(true);
 
     try {
-      // Photo/attachments are intentionally NOT included here - see
-      // the comment block at the top of this file.
-      const { attachments, ...payload } = entry;
-
-      const response = await submitMoveOut({
-        ...payload,
+      const payload = {
+        ...entry,
         technicianName: entry.technicianName.trim(),
         email: entry.email.trim(),
         notes: entry.notes.trim(),
+      };
+
+      const result = await submitWithOfflineFallback({
+        formType: 'moveOut',
+        payload,
+        submitFn: submitMoveOut,
       });
+
+      if (result.offline) {
+        setPopup({
+          visible: true,
+          title: 'Saved offline',
+          message:
+            "No connection right now — this will sync automatically once you're back online.",
+          success: true,
+        });
+
+        setSubmitting(false);
+        return;
+      }
 
       setPopup({
         visible: true,
         title: 'Move-out checklist submitted',
-        message: response?.data?.detail || 'The move-out checklist was submitted successfully.',
+        message: result.response?.data?.detail || 'The move-out checklist was submitted successfully.',
         success: true,
       });
     } catch (error) {

@@ -23,12 +23,18 @@ import { colors } from '../theme/colors';
 
 import styles from '../styles/SubmitWorkOrderScreen.styles';
 
+import { submitWithOfflineFallback } from '../utils/submitWithOfflineFallback';
 /**
  * screens/SubmitWorkOrderScreen.js
  * ----------------------------------------------------------------
  * Opened from the "Submit Work Order" card on the Home dashboard.
  * Reachable via the header's back button (navigation.canGoBack())
  * since it's not the root of the Technician stack.
+ *
+ * createTicket() now takes technicianName AND city from the logged
+ * in user's real profile (useAuth()'s name/city) - previously this
+ * pre-filled Technician Name with the EMAIL address and hardcoded
+ * City to "Youngstown" regardless of who was logged in.
  * ----------------------------------------------------------------
  */
 
@@ -36,11 +42,11 @@ function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function createTicket(technicianName = '') {
+function createTicket(technicianName = '', city = '') {
   return {
     localId: `${Date.now()}-${Math.random()}`,
     ticketId: '',
-    city: 'Youngstown',
+    city: city || 'Youngstown',
     technicianName,
     property: '',
     unit: '',
@@ -93,7 +99,7 @@ function buildErrorMessage(error) {
 }
 
 export default function SubmitWorkOrderScreen({ navigation }) {
-  const { email } = useAuth();
+  const { email, name, city } = useAuth();
 
   /*
    * Shared CRM Property and Unit lookup logic.
@@ -115,7 +121,7 @@ export default function SubmitWorkOrderScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [tickets, setTickets] = useState([createTicket(email || '')]);
+  const [tickets, setTickets] = useState([createTicket(name || '', city || '')]);
   const [ticketErrors, setTicketErrors] = useState([{}]);
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({
@@ -140,7 +146,7 @@ export default function SubmitWorkOrderScreen({ navigation }) {
       return;
     }
 
-    setTickets((currentTickets) => [...currentTickets, createTicket(email || '')]);
+    setTickets((currentTickets) => [...currentTickets, createTicket(name || '', city || '')]);
     setTicketErrors((currentErrors) => [...currentErrors, {}]);
   };
 
@@ -150,7 +156,7 @@ export default function SubmitWorkOrderScreen({ navigation }) {
   };
 
   const resetForm = () => {
-    setTickets([createTicket(email || '')]);
+    setTickets([createTicket(name || '', city || '')]);
     setTicketErrors([{}]);
   };
 
@@ -168,7 +174,7 @@ export default function SubmitWorkOrderScreen({ navigation }) {
     await loadUnits(propertyId);
   };
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     const validationResults = tickets.map(validateTicket);
     setTicketErrors(validationResults);
 
@@ -195,7 +201,26 @@ export default function SubmitWorkOrderScreen({ navigation }) {
         workDetails: ticket.workDetails.trim(),
       }));
 
-      const response = await submitWorkOrder(payload);
+      const result = await submitWithOfflineFallback({
+        formType: 'workOrder',
+        payload,
+        submitFn: submitWorkOrder,
+      });
+
+      if (result.offline) {
+        setPopup({
+          visible: true,
+          title: 'Saved offline',
+          message:
+            "No connection right now — this will sync automatically once you're back online.",
+          success: true,
+        });
+
+        setSubmitting(false);
+        return;
+      }
+
+      const response = result.response;
 
       /*
        * The backend should normally return an HTTP error

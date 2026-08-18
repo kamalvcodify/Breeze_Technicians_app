@@ -4,14 +4,13 @@ import { colors, radius, spacing, typography, shadow } from '../theme/colors';
 /**
  * styles/AdminPanelScreen.styles.js
  * ----------------------------------------------------------------
- * Restyled to match the same structure/visual language as the
- * technician screens: a light page header (colors.surface,
- * border-bottom) instead of a dark navy hero, radius.lg cards with
- * shadow.xs (matching Home's dashboard cards and the re-themed
- * Work Order cards), and the same maxWidth: 1100 centered content
- * wrapper used on Home / My Assigned Work Orders / Privacy Policy.
- * No functional change — same two cards, same fields, same
- * behavior, just brought in line with the rest of the app visually.
+ * Header replaced: was its own bespoke "ADMINISTRATOR eyebrow +
+ * big title" pattern, now uses the exact same headerBar/
+ * headerBarInner/headerTextGroup/headerIconBadge structure as
+ * every other screen (Home, Reports, all 5 forms) - same
+ * typography.size.md bold title, typography.size.sm subtitle, and
+ * 36x36 icon badge on the right. No other structural change - same
+ * two cards, same fields, same behavior.
  * ----------------------------------------------------------------
  */
 export default StyleSheet.create({
@@ -23,35 +22,42 @@ export default StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
 
-  pageHeader: {
-    width: '100%',
+  headerBar: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  pageHeaderInner: {
+  headerBarInner: {
     width: '100%',
     maxWidth: 1100,
     alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  headerEyebrow: {
-    color: colors.blue,
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-    letterSpacing: 1.5,
-    marginBottom: spacing.xs,
+  headerTextGroup: {
+    flexShrink: 1,
   },
   headerTitle: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.bold,
     color: colors.textPrimary,
-    fontSize: typography.size.xxl,
-    fontWeight: typography.weight.extrabold,
   },
   headerSubtitle: {
+    fontSize: typography.size.sm,
     color: colors.textSecondary,
-    fontSize: typography.size.body,
-    marginTop: spacing.xs,
+    marginTop: 2,
+  },
+  headerIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.iconBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.md,
   },
 
   content: {
@@ -161,11 +167,19 @@ export default StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
-  userEmail: {
-    fontSize: typography.size.body,
-    color: colors.textPrimary,
-    flexShrink: 1,
+  userInfo: {
+    flex: 1,
     marginRight: spacing.sm,
+  },
+  userName: {
+    fontSize: typography.size.body,
+    fontWeight: typography.weight.semibold,
+    color: colors.textPrimary,
+  },
+  userMeta: {
+    fontSize: typography.size.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   badge: {
     flexDirection: 'row',

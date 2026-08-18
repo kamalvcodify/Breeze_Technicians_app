@@ -6,19 +6,15 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-
     "icon": "./assets/icon.png",
-
     "splash": {
       "backgroundColor": "#EEF3FC",
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain"
     },
-
     "assetBundlePatterns": [
       "**/*"
     ],
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.breeze.technician",
@@ -32,7 +28,6 @@
         "NSCameraUsageDescription": "Breeze needs camera access to scan inventory part QR codes."
       }
     },
-
     "android": {
       "package": "com.breeze.technician",
       "versionCode": 1,
@@ -40,7 +35,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#202934"
       },
-
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -48,16 +42,21 @@
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
-
     },
-
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       "expo-secure-store",
       "@react-native-community/datetimepicker",
@@ -88,11 +87,11 @@
         }
       ]
     ],
-
     "extra": {
       "eas": {
-        "projectId": "822752b8-d045-40bb-a93b-15ebbe135da8"
+        "projectId": "1aad175f-19bb-4202-bcea-0260417c4502"
       }
-    }
+    },
+    "owner": "ajaybreezes-team"
   }
 }

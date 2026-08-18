@@ -1,32 +1,34 @@
 const express = require("express");
 
+const multer = require("multer");
+
 const asyncHandler = require("../utils/asyncHandler");
 
-const {
-  requireAuth,
-} = require("../middleware/authMiddleware");
+const { requireAuth } = require("../middleware/authMiddleware");
 
-const moveOutController = require(
-  "../controllers/moveOutController"
-);
+const moveOutController = require("../controllers/moveOutController");
 
 const router = express.Router();
 
-/*
- * --------------------------------------------------
- * Process a Move Out submission
- * --------------------------------------------------
- * Property/Unit lookups reuse the existing Work Order lookup
- * routes (/api/work-orders/lookups/...), same as Rehab Order and
- * Check In/Check Out do.
+/**
+ * NEW: multer middleware added - Move Out never had real file
+ * upload support before. Single-entry form, so fewer max files
+ * needed than Work Order/Rehab Order's multi-ticket limits.
  */
+const upload = multer({
+  storage: multer.memoryStorage(),
+
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 10,
+  },
+});
 
 router.post(
   "/",
   requireAuth,
-  asyncHandler(
-    moveOutController.submitMoveOut
-  )
+  upload.any(),
+  asyncHandler(moveOutController.submitMoveOut),
 );
 
 module.exports = router;

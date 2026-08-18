@@ -7,6 +7,10 @@ const { creatorRequest } = require("./zohoCreatorService");
  * ----------------------------------------------------------------
  * Single-entry, same helper pattern as the other services.
  *
+ * FIX: Unit is now wired up - sends entry.unitName (the display
+ * NAME), not entry.unit (the lookup ID). Was previously fully
+ * commented out.
+ *
  * IMPORTANT: unlike Property/Unit/Email/etc (which go through
  * env.js-configured field names), the ~29 checklist boolean fields
  * are sent using their KEYS DIRECTLY as Zoho field API names - no
@@ -88,7 +92,12 @@ function buildCreatorPayload(entry) {
 
   setField(data, rentReadyConfig.fields.property, entry.property);
 
-  // setField(data, rentReadyConfig.fields.unit, entry.unit);
+  /*
+   * FIX: Unit field now sends entry.unitName (display NAME), not
+   * entry.unit (lookup ID) - Zoho expects text here, same pattern
+   * as every other form.
+   */
+  setField(data, rentReadyConfig.fields.unit, entry.unitName);
 
   setField(data, rentReadyConfig.fields.email, entry.email);
 

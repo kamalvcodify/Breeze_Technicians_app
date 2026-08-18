@@ -12,8 +12,24 @@ const { creatorRequest } = require("./zohoCreatorService");
  * rentReadyChecklist.fields/.checklist in env.js) - nothing is
  * re-typed here.
  *
- * Attachments are intentionally NOT read/returned anywhere in this
- * file, per instructions to skip that for now.
+ * FIX: Zoho Creator's v2.1 API returns Lookup fields (Property,
+ * confirmed from a real record dump) as a nested object, e.g.:
+ *   "Property": { "ID": "...", "product_name": "...",
+ *                 "zc_display_value": "Orchard Building" }
+ * or as an empty object {} when the field is unset. Every place
+ * that read record[fieldName] directly and passed it straight to
+ * String(...) or used it in a || fallback was producing the
+ * literal text "[object Object]" for any Lookup field - this is
+ * exactly what showed up as Property's value in the Reports detail
+ * view. extractDisplayValue() below is now used everywhere a
+ * single field's value is read, both in the detail-view field
+ * extraction AND in the list-view summary columns (Property/Unit
+ * on Rehab Order, Move Out, and Rent Ready Checklist use the same
+ * raw-property-read pattern and were equally affected).
+ *
+ * Attachments/images are intentionally NOT read/returned anywhere
+ * in this file yet - per instructions, that's a deliberate next
+ * step, not part of this fix.
  *
  * Filtering: each report is filtered to the requesting
  * technician's own records via a Zoho Creator "criteria" query on
@@ -65,6 +81,38 @@ function labelFor(internalKey) {
   return FIELD_LABELS[internalKey] || internalKey;
 }
 
+/**
+ * Normalizes ANY raw Zoho field value down to a plain display
+ * string - handles the 3 shapes we've actually seen in real
+ * responses:
+ *   - a plain string/number ("Toledo", "Follow up needed", etc.)
+ *   - a populated Lookup object ({ ID, product_name,
+ *     zc_display_value }) -> use zc_display_value
+ *   - an unset Lookup field, returned as an empty object {} -> ""
+ * Arrays (e.g. the Attachments subform) are deliberately NOT
+ * unwrapped here - this function is only for single-value fields.
+ */
+function extractDisplayValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    if (value.zc_display_value) {
+      return String(value.zc_display_value);
+    }
+
+    // Empty Lookup object (field left unset) - no real value.
+    return "";
+  }
+
+  return String(value);
+}
+
 function extractGroupFields(record, fieldMap) {
   const fields = [];
 
@@ -79,15 +127,15 @@ function extractGroupFields(record, fieldMap) {
       return;
     }
 
-    const value = record[zohoFieldName];
+    const value = extractDisplayValue(record[zohoFieldName]);
 
-    if (value === undefined || value === null || value === "") {
+    if (!value) {
       return;
     }
 
     fields.push({
       label: labelFor(internalKey),
-      value: String(value),
+      value,
     });
   });
 
@@ -139,9 +187,9 @@ function buildWorkOrderRow(record) {
   return {
     id: record.ID || record.id,
     summary: {
-      col1: record[ticket1.ticketId] || "",
-      col2: record[ticket1.city] || "",
-      col3: record[ticket1.date] || "",
+      col1: extractDisplayValue(record[ticket1.ticketId]),
+      col2: extractDisplayValue(record[ticket1.city]),
+      col3: extractDisplayValue(record[ticket1.date]),
     },
     groups,
   };
@@ -157,7 +205,10 @@ function buildRehabOrderRow(record) {
     { title: "Rehab3", fields: rehabConfig.entries.entry3 },
   ]);
 
-  const propertyUnit = [record[entry1.property], record[entry1.unit]]
+  const propertyUnit = [
+    extractDisplayValue(record[entry1.property]),
+    extractDisplayValue(record[entry1.unit]),
+  ]
     .filter(Boolean)
     .join(" / ");
 
@@ -165,8 +216,8 @@ function buildRehabOrderRow(record) {
     id: record.ID || record.id,
     summary: {
       col1: propertyUnit,
-      col2: record[entry1.status] || "",
-      col3: record[entry1.date] || "",
+      col2: extractDisplayValue(record[entry1.status]),
+      col3: extractDisplayValue(record[entry1.date]),
     },
     groups,
   };
@@ -182,9 +233,9 @@ function buildCheckInOutRow(record) {
   return {
     id: record.ID || record.id,
     summary: {
-      col1: record[fields.partCode] || "",
-      col2: record[fields.action] || "",
-      col3: record[fields.dateTime] || "",
+      col1: extractDisplayValue(record[fields.partCode]),
+      col2: extractDisplayValue(record[fields.action]),
+      col3: extractDisplayValue(record[fields.dateTime]),
     },
     groups,
   };
@@ -197,7 +248,10 @@ function buildMoveOutRow(record) {
     { title: "Move Out", fields: extractGroupFields(record, fields) },
   ];
 
-  const propertyUnit = [record[fields.property], record[fields.unit]]
+  const propertyUnit = [
+    extractDisplayValue(record[fields.property]),
+    extractDisplayValue(record[fields.unit]),
+  ]
     .filter(Boolean)
     .join(" / ");
 
@@ -205,8 +259,8 @@ function buildMoveOutRow(record) {
     id: record.ID || record.id,
     summary: {
       col1: propertyUnit,
-      col2: record[fields.finalStatus] || "",
-      col3: record[fields.dateOfInspection] || "",
+      col2: extractDisplayValue(record[fields.finalStatus]),
+      col3: extractDisplayValue(record[fields.dateOfInspection]),
     },
     groups,
   };
@@ -232,7 +286,10 @@ function buildRentReadyChecklistRow(record) {
     checklist[shortKey] = value === true || value === "true";
   });
 
-  const propertyUnit = [record[fields.property], record[fields.unit]]
+  const propertyUnit = [
+    extractDisplayValue(record[fields.property]),
+    extractDisplayValue(record[fields.unit]),
+  ]
     .filter(Boolean)
     .join(" / ");
 
@@ -240,8 +297,8 @@ function buildRentReadyChecklistRow(record) {
     id: record.ID || record.id,
     summary: {
       col1: propertyUnit,
-      col2: record[fields.rentReady] || "",
-      col3: record[fields.dateTime] || "",
+      col2: extractDisplayValue(record[fields.rentReady]),
+      col3: extractDisplayValue(record[fields.dateTime]),
     },
     groups,
     checklist,

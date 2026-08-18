@@ -71,16 +71,45 @@ async function listUsers() {
   }
 }
 
-async function createUser({ email, passwordHash, isAdmin }) {
+/**
+ * createUser
+ * ----------------------------------------------------------------
+ * FIX: this previously referenced `field.name` / `field.city`
+ * (singular, undefined) instead of `fields.name` / `fields.city`
+ * (plural - the actual destructured config object at the top of
+ * this file) - that typo is exactly what threw "field is not
+ * defined". config.zoho.fields already has both `name` and `city`
+ * mapped correctly in env.js, so no config change was needed, just
+ * this one reference fixed.
+ * ----------------------------------------------------------------
+ */
+async function createUser({ name, city, email, passwordHash, isAdmin }) {
   const payload = {
     data: {
       [fields.email]: email,
+      [fields.name]: name,
+      [fields.city]: city,
       [fields.password]: passwordHash,
       [fields.isAdmin]: isAdmin ? "Yes" : "No",
     },
   };
 
   const result = await zohoRequest("post", `/form/${usersFormLinkName}`, { data: payload });
+  return result;
+}
+
+async function updateUserTermsAccepted(recordId, accepted) {
+  const payload = {
+    data: {
+      [fields.termsAccepted]: accepted ? "Accepted" : "Not Accepted",
+    },
+  };
+
+  const result = await zohoRequest(
+    "patch",
+    `/report/${usersReportLinkName}/${recordId}`,
+    { data: payload }
+  );
   return result;
 }
 
@@ -104,4 +133,5 @@ module.exports = {
   listUsers,
   createUser,
   updateUserPassword,
+  updateUserTermsAccepted,
 };

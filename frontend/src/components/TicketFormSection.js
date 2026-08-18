@@ -12,22 +12,9 @@ import AttachmentPicker from './AttachmentPicker';
 import DateTimeField from './DateTimeField';
 import SearchableSelect from './SearchableSelect';
 
-import styles from '../styles/TicketFormSection.styles';
+import { CITY_OPTIONS } from '../constants/cityOptions';
 
-const CITY_OPTIONS = [
-  {
-    label: 'Youngstown',
-    value: 'Youngstown',
-  },
-  {
-    label: 'Toledo',
-    value: 'Toledo',
-  },
-  {
-    label: 'Lima',
-    value: 'Lima',
-  },
-];
+import styles from '../styles/TicketFormSection.styles';
 
 const JOB_TYPE_OPTIONS = [
   {
@@ -39,21 +26,13 @@ const JOB_TYPE_OPTIONS = [
     value: 'Inspection',
   },
   {
-    label: 'Rehab',
-    value: 'Rehab',
+    label: 'Repair',
+    value: 'Repair',
   },
   {
-    label: 'Store Run',
-    value: 'Store Run',
+    label: 'Emergency',
+    value: 'Emergency',
   },
-    {
-    label: 'Section 8',
-    value: 'Section 8',
-  },
-  {
-    label: 'Other',
-    value: 'Other',
-  }
 ];
 
 const STATUS_OPTIONS = [
@@ -66,7 +45,7 @@ const STATUS_OPTIONS = [
     value: 'Working on it',
   },
   {
-    label: 'Closed - Ticket Resolved',
+    label: 'Completed',
     value: 'Completed',
   },
   {
@@ -75,15 +54,6 @@ const STATUS_OPTIONS = [
   },
 ];
 
-/**
- * components/TicketFormSection.js
- * ----------------------------------------------------------------
- * Field layout for one Work Order ticket. This screen/component is
- * the reference pattern for other order-submission forms in the
- * app (e.g. Rehab Order) - it should not be changed to match those
- * other forms; they should be changed to match this one.
- * ----------------------------------------------------------------
- */
 export default function TicketFormSection({
   ticket,
   ticketNumber,
@@ -124,11 +94,36 @@ export default function TicketFormSection({
       ...ticket,
       property: propertyId,
       unit: '',
+      unitName: '',
     });
 
     onPropertySelected(
       propertyId
     );
+  };
+
+  const handleUnitChange = (
+    unitId
+  ) => {
+    /*
+     * Zoho's Unit field expects the display NAME, not the lookup
+     * ID - THIS is the fix that was previously missing here (it
+     * already existed correctly in RehabFormSection.js, but was
+     * never applied to this file). unitOptions already carries the
+     * label for whichever unit was selected.
+     */
+    const selectedUnit =
+      unitOptions.find(
+        (option) =>
+          option.value === unitId
+      );
+
+    onChange({
+      ...ticket,
+      unit: unitId,
+      unitName:
+        selectedUnit?.label || '',
+    });
   };
 
   return (
@@ -251,11 +246,8 @@ export default function TicketFormSection({
                 ? 'No units found for this property.'
                 : 'Select a property first.'
             }
-            onChange={(value) =>
-              updateField(
-                'unit',
-                value
-              )
+            onChange={
+              handleUnitChange
             }
             onRemoteSearch={(
               query

@@ -77,6 +77,16 @@ function getTicketAttachments(
     }));
 }
 
+/**
+ * normalizeTicket
+ * ----------------------------------------------------------------
+ * FIX: unitName was never read here before, so even after the
+ * frontend started sending it, this function silently dropped it
+ * before the ticket ever reached zohoWorkOrderService.js. unit (the
+ * ID) is still kept too - it's used elsewhere (e.g. the temp-value
+ * guard in the service layer).
+ * ----------------------------------------------------------------
+ */
 function normalizeTicket(
   ticket,
   attachments
@@ -95,8 +105,11 @@ function normalizeTicket(
     ),
 
     /*
-     * Property and Unit should contain Zoho lookup IDs,
-     * not display labels.
+     * Property should contain the Zoho lookup ID (it's a real
+     * Lookup field there). Unit is different: unit holds the
+     * lookup ID (kept for internal checks only) and unitName holds
+     * the display NAME - that's what actually gets sent to Zoho's
+     * Unit field, since it expects text, not an ID.
      */
     property: cleanText(
       ticket.property
@@ -104,6 +117,10 @@ function normalizeTicket(
 
     unit: cleanText(
       ticket.unit
+    ),
+
+    unitName: cleanText(
+      ticket.unitName
     ),
 
     status: cleanText(

@@ -1,33 +1,17 @@
-import {
-  StyleSheet,
-} from 'react-native';
+import { StyleSheet } from "react-native";
 
-import {
-  colors,
-  radius,
-  spacing,
-} from '../theme/colors';
+import { colors, radius, spacing } from "../theme/colors";
 
-/**
- * styles/SearchableSelect.styles.js
- * ----------------------------------------------------------------
- * modalCard now has overflow:'hidden', and optionsList/
- * optionsListContent give the FlatList explicit flex sizing so it
- * scrolls properly WITHIN the modal's maxHeight instead of
- * overflowing past it - see the comment block in
- * components/SearchableSelect.js for why this mattered.
- * ----------------------------------------------------------------
- */
 export default StyleSheet.create({
   wrapper: {
-    width: '100%',
+    width: "100%",
     marginBottom: spacing.md,
   },
 
   label: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: spacing.xs,
   },
 
@@ -36,12 +20,10 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.sm,
-    backgroundColor:
-      colors.surface,
-    paddingHorizontal:
-      spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   errorControl: {
@@ -50,8 +32,7 @@ export default StyleSheet.create({
 
   disabledControl: {
     opacity: 0.55,
-    backgroundColor:
-      colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
 
   selectedText: {
@@ -82,31 +63,29 @@ export default StyleSheet.create({
 
   modalRoot: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: spacing.lg,
   },
 
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor:
-      colors.overlay,
+    backgroundColor: colors.overlay,
   },
 
   modalCard: {
-    width: '100%',
+    width: "100%",
     maxWidth: 520,
-    maxHeight: '78%',
-    alignSelf: 'center',
-    backgroundColor:
-      colors.surface,
+    maxHeight: "78%",
+    alignSelf: "center",
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
 
@@ -114,7 +93,7 @@ export default StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   searchInput: {
@@ -122,8 +101,7 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.sm,
-    paddingHorizontal:
-      spacing.md,
+    paddingHorizontal: spacing.md,
     color: colors.text,
     fontSize: 14,
     marginBottom: spacing.md,
@@ -137,8 +115,8 @@ export default StyleSheet.create({
   },
 
   loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
 
@@ -148,9 +126,6 @@ export default StyleSheet.create({
     marginLeft: spacing.sm,
   },
 
-  // Explicit flex so the list scrolls within modalCard's maxHeight
-  // instead of overflowing past it - see the comment block in
-  // SearchableSelect.js.
   optionsList: {
     flexGrow: 0,
     flexShrink: 1,
@@ -161,8 +136,8 @@ export default StyleSheet.create({
 
   option: {
     minHeight: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.sm,
   },
 
@@ -173,7 +148,7 @@ export default StyleSheet.create({
   optionLabel: {
     color: colors.text,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   optionSubtitle: {
@@ -184,14 +159,64 @@ export default StyleSheet.create({
 
   separator: {
     height: 1,
-    backgroundColor:
-      colors.border,
+    backgroundColor: colors.border,
   },
 
   emptyText: {
     color: colors.textMuted,
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: spacing.xl,
+  },
+
+  /*
+   * Manual entry fallback - new, see the comment block at the top
+   * of SearchableSelect.js.
+   */
+  manualEntrySection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  manualEntryToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 40,
+  },
+  manualEntryToggleText: {
+    color: colors.blue,
+    fontSize: 13,
+    fontWeight: "700",
+    marginLeft: spacing.xs,
+  },
+  manualEntryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  manualEntryInput: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    fontSize: 14,
+    marginRight: spacing.sm,
+  },
+  manualEntryConfirm: {
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: colors.blue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  manualEntryConfirmText: {
+    color: colors.textOnDark,
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

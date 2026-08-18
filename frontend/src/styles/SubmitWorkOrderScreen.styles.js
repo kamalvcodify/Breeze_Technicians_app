@@ -4,10 +4,15 @@ import { colors, radius, spacing, typography } from '../theme/colors';
 /**
  * styles/SubmitWorkOrderScreen.styles.js
  * ----------------------------------------------------------------
- * headerBar/headerBarInner/headerTextGroup/headerTitle/
- * headerSubtitle/headerIconBadge match Home / My Assigned Work
- * Orders / Technician Shift / Privacy Policy exactly - this screen
- * was the one still left on the old dark "pageHeader" hero.
+ * This is the FULL, matching styles file for the current
+ * SubmitWorkOrderScreen.js - if the header renders as plain
+ * unstyled text (no card, no border, no icon badge), it means the
+ * .js file and this .styles.js file are out of sync: the component
+ * references styles.headerBar/.headerBarInner/.headerTextGroup/
+ * .headerTitle/.headerSubtitle/.headerIconBadge, and if this exact
+ * file isn't the one actually in place, those keys resolve to
+ * undefined and React Native applies no style at all - which
+ * produces exactly that flat, unstyled look.
  * ----------------------------------------------------------------
  */
 export default StyleSheet.create({
@@ -64,8 +69,6 @@ export default StyleSheet.create({
     paddingVertical: spacing.xl,
   },
 
-  // Property-load error banner - was a raw inline hex-color style
-  // object in the screen component; now uses shared theme tokens.
   errorBanner: {
     marginBottom: spacing.lg,
     padding: spacing.md,
@@ -101,6 +104,7 @@ export default StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+
   actions: {
     backgroundColor: colors.surface,
     borderWidth: 1,

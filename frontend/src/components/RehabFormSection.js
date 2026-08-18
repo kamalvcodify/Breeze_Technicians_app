@@ -7,6 +7,8 @@ import AttachmentPicker from './AttachmentPicker';
 import DateTimeField from './DateTimeField';
 import SearchableSelect from './SearchableSelect';
 
+import { CITY_OPTIONS } from '../constants/cityOptions';
+
 import styles from '../styles/RehabFormSection.styles';
 
 /**
@@ -19,29 +21,15 @@ import styles from '../styles/RehabFormSection.styles';
  * ("Technician Name", "Clock In"/"Clock Out", City dropdown, etc),
  * rather than the other way around.
  *
- * City is now an AppSelect dropdown with the same option list as
- * Work Order's CITY_OPTIONS (TicketFormSection.js), instead of a
- * plain text field.
+ * City now imports the shared CITY_OPTIONS from
+ * constants/cityOptions.js (same list every form uses) instead of
+ * defining its own local copy.
  *
  * ASSUMPTIONS still open (screenshot-only, no real Zoho picklist
  * values yet) - replace once available:
  * - RENT_READY_OPTIONS: assumed Yes/No.
  * ----------------------------------------------------------------
  */
-const CITY_OPTIONS = [
-  {
-    label: 'Youngstown',
-    value: 'Youngstown',
-  },
-  {
-    label: 'Toledo',
-    value: 'Toledo',
-  },
-  {
-    label: 'Lima',
-    value: 'Lima',
-  },
-];
 
 const STATUS_OPTIONS = [
   {
@@ -119,8 +107,24 @@ export default function RehabFormSection({
   const handlePropertyChange = (propertyId) => {
     // Clear the existing Unit because it may belong to the
     // previously selected Property - same pattern as Work Order.
-    onChange({ ...order, property: propertyId, unit: '' });
+    onChange({ ...order, property: propertyId, unit: '', unitName: '' });
     onPropertySelected(propertyId);
+  };
+
+  const handleUnitChange = (unitId) => {
+    // Zoho's UnitNew field expects the Unit's display NAME, not its
+    // lookup ID (confirmed by testing - Property is a real Lookup
+    // field and accepts the ID fine, but UnitNew rejected the ID
+    // with "Invalid column value"). unitOptions already carries the
+    // label for whichever unit was selected, so capture it here
+    // alongside the ID.
+    const selectedUnit = unitOptions.find((option) => option.value === unitId);
+
+    onChange({
+      ...order,
+      unit: unitId,
+      unitName: selectedUnit?.label || '',
+    });
   };
 
   return (
@@ -197,7 +201,7 @@ export default function RehabFormSection({
             emptyMessage={
               order.property ? 'No units found for this property.' : 'Select a property first.'
             }
-            onChange={(value) => updateField('unit', value)}
+            onChange={handleUnitChange}
             onRemoteSearch={(query) => onUnitSearch(order.property, query)}
           />
 

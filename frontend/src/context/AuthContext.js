@@ -6,30 +6,28 @@ import { setAuthToken } from '../api/client';
 const TOKEN_KEY = 'breeze_auth_token';
 const IS_ADMIN_KEY = 'breeze_is_admin';
 const EMAIL_KEY = 'breeze_user_email';
+const NAME_KEY = 'breeze_user_name';
+const CITY_KEY = 'breeze_user_city';
 
 const AuthContext = createContext(null);
 
 /**
  * context/AuthContext.js
  * ----------------------------------------------------------------
- * IMPORTANT: this must go through services/authStorage.js, never
- * call expo-secure-store directly.
- *
- * This was the root cause of the "can't log in on my phone" issue:
- * this file used to call SecureStore.setItemAsync/getItemAsync
- * directly. On some real devices / dev-client builds SecureStore's
- * native module fails to link correctly and throws
- * "_ExpoSecureStore.default.getValueWithKeyAsync is not a function"
- * — which happened here, inside login()/the startup check, with no
- * try/catch around it. That crashed the login flow before the app
- * ever got to the next screen, even though the credentials were
- * correct. authStorage.js already existed specifically to fall back
- * to AsyncStorage when this happens; this file just wasn't using it.
+ * name/city added alongside the existing email/isAdmin - exact
+ * same pattern (own storage key, restored on boot, set on login,
+ * cleared on logout, exposed via context value). Every form's
+ * createEmptyOrder()/createEmptyEntry() should now read these from
+ * useAuth() to auto-fill Technician Name/City, instead of guessing
+ * the name from the email address or defaulting City to a
+ * hardcoded value.
  * ----------------------------------------------------------------
  */
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [email, setEmail] = useState(null);
+  const [name, setName] = useState(null);
+  const [city, setCity] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
@@ -40,9 +38,13 @@ export function AuthProvider({ children }) {
         if (storedToken) {
           const storedIsAdmin = await getAuthValue(IS_ADMIN_KEY);
           const storedEmail = await getAuthValue(EMAIL_KEY);
+          const storedName = await getAuthValue(NAME_KEY);
+          const storedCity = await getAuthValue(CITY_KEY);
           setToken(storedToken);
           setIsAdmin(storedIsAdmin === 'true');
           setEmail(storedEmail);
+          setName(storedName);
+          setCity(storedCity);
           setAuthToken(storedToken);
         }
       } finally {
@@ -51,30 +53,44 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const login = async ({ token: nextToken, email: userEmail, isAdmin: admin }) => {
+  const login = async ({
+    token: nextToken,
+    email: userEmail,
+    isAdmin: admin,
+    name: userName,
+    city: userCity,
+  }) => {
     setToken(nextToken);
     setEmail(userEmail);
     setIsAdmin(admin);
+    setName(userName || '');
+    setCity(userCity || '');
     setAuthToken(nextToken);
 
     await setAuthValue(TOKEN_KEY, nextToken);
     await setAuthValue(IS_ADMIN_KEY, String(admin));
     await setAuthValue(EMAIL_KEY, userEmail || '');
+    await setAuthValue(NAME_KEY, userName || '');
+    await setAuthValue(CITY_KEY, userCity || '');
   };
 
   const logout = async () => {
     setToken(null);
     setEmail(null);
     setIsAdmin(false);
+    setName(null);
+    setCity(null);
     setAuthToken(null);
 
     await deleteAuthValue(TOKEN_KEY);
     await deleteAuthValue(IS_ADMIN_KEY);
     await deleteAuthValue(EMAIL_KEY);
+    await deleteAuthValue(NAME_KEY);
+    await deleteAuthValue(CITY_KEY);
   };
 
   return (
-    <AuthContext.Provider value={{ token, email, isAdmin, initializing, login, logout }}>
+    <AuthContext.Provider value={{ token, email, name, city, isAdmin, initializing, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

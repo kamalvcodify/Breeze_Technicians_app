@@ -23,6 +23,8 @@ import { colors } from '../theme/colors';
 
 import styles from '../styles/SubmitRehabOrderScreen.styles';
 
+import { submitWithOfflineFallback } from '../utils/submitWithOfflineFallback';
+
 /**
  * screens/SubmitRehabOrderScreen.js
  * ----------------------------------------------------------------
@@ -45,20 +47,21 @@ function getToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function createEmptyOrder(technicianName = '') {
+function createEmptyOrder(technicianName = '', city = '') {
   return {
     localId: `${Date.now()}-${Math.random()}`,
     property: '',
     unit: '',
+    unitName: '',
     technicianName,
     status: '',
     description: '',
     rentReady: '',
-    city: 'Youngstown',
+    city: city || 'Youngstown',
     clockIn: '',
     clockOut: '',
     date: getToday(),
-    jobType: 'Maintenance',
+    jobType: 'Rehab',
     attachments: [],
   };
 }
@@ -102,7 +105,7 @@ function buildErrorMessage(error) {
 }
 
 export default function SubmitRehabOrderScreen({ navigation }) {
-  const { email } = useAuth();
+  const { email, name, city } = useAuth();
 
   const {
     properties,
@@ -118,7 +121,7 @@ export default function SubmitRehabOrderScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [orders, setOrders] = useState([createEmptyOrder(email || '')]);
+  const [orders, setOrders] = useState([createEmptyOrder(name || '', city || '')]);
   const [orderErrors, setOrderErrors] = useState([{}]);
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({
@@ -143,7 +146,7 @@ export default function SubmitRehabOrderScreen({ navigation }) {
       return;
     }
 
-    setOrders((currentOrders) => [...currentOrders, createEmptyOrder(email || '')]);
+    setOrders((currentOrders) => [...currentOrders, createEmptyOrder(name || '', city || '')]);
     setOrderErrors((currentErrors) => [...currentErrors, {}]);
   };
 
@@ -153,7 +156,7 @@ export default function SubmitRehabOrderScreen({ navigation }) {
   };
 
   const resetForm = () => {
-    setOrders([createEmptyOrder(email || '')]);
+    setOrders([createEmptyOrder(name || '', city || '')]);
     setOrderErrors([{}]);
   };
 
@@ -191,12 +194,29 @@ export default function SubmitRehabOrderScreen({ navigation }) {
         city: order.city.trim(),
       }));
 
-      const response = await submitRehabOrder(payload);
+      const result = await submitWithOfflineFallback({
+        formType: 'rehabOrder',
+        payload,
+        submitFn: submitRehabOrder,
+      });
+
+      if (result.offline) {
+        setPopup({
+          visible: true,
+          title: 'Saved offline',
+          message:
+            "No connection right now — this will sync automatically once you're back online.",
+          success: true,
+        });
+
+        setSubmitting(false);
+        return;
+      }
 
       setPopup({
         visible: true,
         title: 'Rehab order submitted',
-        message: response?.data?.detail || 'The rehab order was submitted successfully.',
+        message: result.response?.data?.detail || 'The rehab order was submitted successfully.',
         success: true,
       });
     } catch (error) {

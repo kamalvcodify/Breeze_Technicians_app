@@ -11,16 +11,18 @@ function cleanText(value) {
 /**
  * controllers/rehabOrderController.js
  * ----------------------------------------------------------------
- * Mirrors workOrderController.js's structure. One difference:
- * parseOrders() accepts EITHER a bare array in req.body OR an
- * object shaped { orders: [...] } - the frontend's api/rehabOrders.js
- * currently posts a bare array, but accepting both shapes here means
- * a future frontend change to wrap it doesn't require a backend
- * change too.
+ * UPDATED for multipart/form-data (previously plain JSON, or a
+ * bare JSON array). Now that the frontend sends a real multipart
+ * request, req.body.orders arrives as a JSON STRING (form fields
+ * are always strings), not a real array - parseOrders() now
+ * JSON.parse()s it, same pattern as workOrderController.js's
+ * parseTickets().
  *
- * Per instructions, attachments are accepted from the frontend (so
- * the request doesn't fail) but are NOT sent to Zoho yet - see
- * zohoRehabOrderService.js.
+ * NEW: getOrderAttachments() extracts real uploaded files from
+ * req.files (populated by multer, see rehabOrderRoutes.js),
+ * matching field names `order_{orderIndex}_attachment_{fileIndex}`
+ * - mirrors workOrderController.js's getTicketAttachments()
+ * exactly.
  * ----------------------------------------------------------------
  */
 function parseOrders(req) {
@@ -33,12 +35,35 @@ function parseOrders(req) {
     throw error;
   }
 
+  const rawOrders = req.body.orders;
+
   if (Array.isArray(req.body)) {
     return req.body;
   }
 
-  if (Array.isArray(req.body.orders)) {
-    return req.body.orders;
+  if (Array.isArray(rawOrders)) {
+    return rawOrders;
+  }
+
+  if (typeof rawOrders === "string") {
+    try {
+      const parsed = JSON.parse(rawOrders);
+
+      if (!Array.isArray(parsed)) {
+        throw new Error(
+          "Orders must be an array."
+        );
+      }
+
+      return parsed;
+    } catch (error) {
+      const parseError = new Error(
+        "The orders field contains invalid JSON."
+      );
+
+      parseError.statusCode = 400;
+      throw parseError;
+    }
   }
 
   const error = new Error(
@@ -49,11 +74,37 @@ function parseOrders(req) {
   throw error;
 }
 
-function normalizeOrder(order) {
+function getOrderAttachments(
+  files,
+  orderIndex
+) {
+  if (!Array.isArray(files)) {
+    return [];
+  }
+
+  const prefix =
+    `order_${orderIndex}_attachment_`;
+
+  return files
+    .filter((file) =>
+      file.fieldname.startsWith(prefix)
+    )
+    .map((file) => ({
+      fieldName: file.fieldname,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      buffer: file.buffer,
+    }));
+}
+
+function normalizeOrder(order, attachments) {
   return {
     property: cleanText(order.property),
 
     unit: cleanText(order.unit),
+
+    unitName: cleanText(order.unitName),
 
     technicianName: cleanText(
       order.technicianName
@@ -81,13 +132,7 @@ function normalizeOrder(order) {
 
     jobType: cleanText(order.jobType),
 
-    // Accepted but not sent to Zoho yet - see
-    // zohoRehabOrderService.js.
-    attachments: Array.isArray(
-      order.attachments
-    )
-      ? order.attachments
-      : [],
+    attachments,
   };
 }
 
@@ -166,7 +211,16 @@ async function submitRehabOrder(req, res) {
     });
   }
 
-  const orders = ordersInput.map(normalizeOrder);
+  const orders = ordersInput.map(
+    (order, index) =>
+      normalizeOrder(
+        order,
+        getOrderAttachments(
+          req.files,
+          index
+        )
+      )
+  );
 
   const validationErrors = orders.flatMap(
     (order, index) => validateOrder(order, index)

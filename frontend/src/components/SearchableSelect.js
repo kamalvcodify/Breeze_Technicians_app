@@ -28,28 +28,21 @@ const REMOTE_SEARCH_MIN_LENGTH = 2;
 /**
  * components/SearchableSelect.js
  * ----------------------------------------------------------------
- * Two real fixes here, not just styling:
+ * NEW: allowManualEntry prop. When true, a "Can't find it? Enter
+ * manually" row is always shown at the bottom of the picker modal -
+ * this exists specifically for the Unit field when a technician is
+ * offline and that property's units were never cached (background
+ * prefetch in usePropertyUnitLookups.js covers most cases, but a
+ * brand-new property or one added after the last prefetch pass
+ * could still have nothing cached).
  *
- * 1. The options FlatList had no sizing of its own, and modalCard
- *    had no overflow:'hidden'. With a long list (many properties/
- *    units), results past the modal's maxHeight would simply
- *    overflow the card and become untappable, with no scrolling -
- *    this was very likely THE "unresponsive" bug on Property/Unit
- *    specifically, since those are the two fields most likely to
- *    have long lists. Fixed by giving the FlatList explicit flex
- *    and modalCard overflow:'hidden'.
- *
- * 2. Remote search used to bail out entirely if there was ANY local
- *    match, even a loose/wrong one - meaning typing could get
- *    "stuck" showing an incomplete local result and never actually
- *    ask the server for the real match. Now it always fires the
- *    remote search on a debounce once the query is long enough,
- *    regardless of what's already loaded locally, so what's shown
- *    is never artificially capped to whatever happened to load
- *    first.
- *
- * Chevron/close/checkmark switched from plain text glyphs to
- * Ionicons for consistency with the rest of the app.
+ * Tapping it reveals an inline text input. Confirming calls
+ * onChange(typedText) - the manually typed text becomes the value
+ * directly (there is no fake ID involved) - AND, if provided,
+ * onManualEntry(typedText) is also called so a parent form section
+ * can do anything extra it specifically needs (e.g. Rehab Order
+ * also sets a separate "unitName" field alongside "unit" - see
+ * RehabFormSection.js).
  * ----------------------------------------------------------------
  */
 export default function SearchableSelect({
@@ -62,7 +55,9 @@ export default function SearchableSelect({
   disabled = false,
   error,
   emptyMessage = 'No records found.',
+  allowManualEntry = false,
   onChange,
+  onManualEntry,
   onRemoteSearch,
 }) {
   const [
@@ -79,6 +74,9 @@ export default function SearchableSelect({
     remoteSearching,
     setRemoteSearching,
   ] = useState(false);
+
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [manualEntryText, setManualEntryText] = useState('');
 
   const selectedOption =
     options.find(
@@ -123,10 +121,6 @@ export default function SearchableSelect({
       return undefined;
     }
 
-    // Always debounce-search remotely once the query is long
-    // enough, regardless of how many (possibly incomplete or
-    // loosely-matched) local options already exist - see the
-    // comment block above for why this used to get stuck.
     const timer =
       setTimeout(async () => {
         setRemoteSearching(true);
@@ -154,6 +148,8 @@ export default function SearchableSelect({
     }
 
     setQuery('');
+    setManualEntryOpen(false);
+    setManualEntryText('');
     setVisible(true);
   };
 
@@ -162,6 +158,22 @@ export default function SearchableSelect({
   ) => {
     onChange(option.value);
     setVisible(false);
+    setQuery('');
+  };
+
+  const confirmManualEntry = () => {
+    const cleanText = manualEntryText.trim();
+
+    if (!cleanText) {
+      return;
+    }
+
+    onChange(cleanText);
+    onManualEntry?.(cleanText);
+
+    setVisible(false);
+    setManualEntryOpen(false);
+    setManualEntryText('');
     setQuery('');
   };
 
@@ -200,6 +212,7 @@ export default function SearchableSelect({
             numberOfLines={1}
           >
             {selectedOption?.label ||
+              value ||
               placeholder}
           </Text>
 
@@ -372,6 +385,40 @@ export default function SearchableSelect({
                 ) : null
               }
             />
+
+            {allowManualEntry && (
+              <View style={styles.manualEntrySection}>
+                {!manualEntryOpen ? (
+                  <TouchableOpacity
+                    style={styles.manualEntryToggle}
+                    onPress={() => setManualEntryOpen(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="create-outline" size={15} color={colors.blue} />
+                    <Text style={styles.manualEntryToggleText}>
+                      Can't find it? Enter manually
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.manualEntryRow}>
+                    <TextInput
+                      style={styles.manualEntryInput}
+                      value={manualEntryText}
+                      onChangeText={setManualEntryText}
+                      placeholder="Type the value"
+                      autoCapitalize="words"
+                    />
+                    <TouchableOpacity
+                      style={styles.manualEntryConfirm}
+                      onPress={confirmManualEntry}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.manualEntryConfirmText}>Use this</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </Modal>

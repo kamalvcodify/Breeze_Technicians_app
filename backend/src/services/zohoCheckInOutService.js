@@ -15,9 +15,9 @@ const {
  * structure and helpers, but single-entry (no T1/T2/T3 repeat
  * pattern) since this form only ever submits one record at a time.
  *
- * Rehab Unit is DELIBERATELY EXCLUDED from the payload for now
- * (per instructions) - the field name is captured in env.js for
- * when it's ready, but addCheckInOutFields() never references it.
+ * FIX: Rehab Unit is now wired up - sends entry.rehabUnitName (the
+ * display NAME), not entry.rehabUnit (the lookup ID). Was
+ * previously fully commented out.
  * ----------------------------------------------------------------
  */
 
@@ -178,9 +178,15 @@ function addCheckInOutFields(
   );
 
   /*
-   * Rehab Unit is intentionally NOT sent yet - see the comment
-   * block at the top of this file.
+   * FIX: Rehab Unit is now wired up - sends entry.rehabUnitName
+   * (the display NAME, not the lookup ID) since Zoho's Unit field
+   * expects text, same pattern as every other form.
    */
+  setField(
+    data,
+    fieldConfig.unit,
+    entry.rehabUnitName
+  );
 
   setField(
     data,

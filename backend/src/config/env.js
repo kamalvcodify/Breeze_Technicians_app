@@ -51,6 +51,19 @@ function ticketFields(prefix) {
       "Image",
     ),
 
+    /*
+     * New - the single-line "Image_Sequence" field added inside
+     * each ticket's attachments subform. Used to pre-create
+     * subform rows (sequence number only, no image) at record-
+     * creation time, then match those rows back to the right local
+     * image file after the record is created - see
+     * zohoWorkOrderService.js's uploadTicketAttachments().
+     */
+    attachmentSequenceField: required(
+      `ZOHO_WORK_ORDER_${prefix}_ATTACHMENT_SEQUENCE_FIELD`,
+      "Image_Sequence",
+    ),
+
     topLevelAttachmentField: required(
       `ZOHO_WORK_ORDER_${prefix}_TOP_LEVEL_ATTACHMENT_FIELD`,
     ),
@@ -89,12 +102,26 @@ function rehabTicketFields(prefix) {
 
     jobType: required(`ZOHO_REHAB_ORDER_${prefix}_JOB_TYPE`),
 
-    // Per instructions, Zoho attachment upload is intentionally
-    // skipped for now - captured for config completeness only,
-    // zohoRehabOrderService.js does not use this yet.
+    /*
+     * Attachment upload is now wired up - see
+     * zohoRehabOrderService.js. attachmentsSubform's name differs
+     * per entry (Attachments / Attachment2 / Attachment3 - note
+     * entries 2/3 do NOT have a trailing "s" unlike Work Order's
+     * equivalent naming), so it's required per-prefix like every
+     * other field here, not defaulted.
+     */
+    attachmentsSubform: required(
+      `ZOHO_REHAB_ORDER_${prefix}_ATTACHMENTS_SUBFORM`,
+    ),
+
     attachmentField: required(
       `ZOHO_REHAB_ORDER_${prefix}_ATTACHMENT_FIELD`,
       "Image",
+    ),
+
+    attachmentSequenceField: required(
+      `ZOHO_REHAB_ORDER_${prefix}_ATTACHMENT_SEQUENCE_FIELD`,
+      "image_sequence",
     ),
   };
 }
@@ -138,10 +165,11 @@ const config = {
 
     fields: {
       email: required("ZOHO_FIELD_EMAIL", "User_Email"),
-
       password: required("ZOHO_FIELD_PASSWORD", "Password"),
-
       isAdmin: required("ZOHO_FIELD_IS_ADMIN", "Is_Admin"),
+      name: required("ZOHO_FIELD_NAME", "User_Name"), // ← already there, don't touch
+      city: required("ZOHO_FIELD_CITY", "City"), // ← already there, don't touch
+      termsAccepted: required("ZOHO_FIELD_TERM_CONDITIONS", "Term_Conditions"), // ← ADD THIS LINE
     },
 
     /*
@@ -283,6 +311,24 @@ const config = {
         ),
 
         notes: required("ZOHO_MOVE_OUT_FIELD_NOTES", "Notes"),
+
+        /*
+         * Attachment upload now wired up - single subform "Photo",
+         * field "Image", sequence "image_sequence". Move Out is
+         * single-entry, so only one set of these (no T1/T2/T3
+         * pattern).
+         */
+        attachmentsSubform: required(
+          "ZOHO_MOVE_OUT_ATTACHMENTS_SUBFORM",
+          "Photo",
+        ),
+
+        attachmentField: required("ZOHO_MOVE_OUT_ATTACHMENT_FIELD", "Image"),
+
+        attachmentSequenceField: required(
+          "ZOHO_MOVE_OUT_ATTACHMENT_SEQUENCE_FIELD",
+          "image_sequence",
+        ),
       },
     },
 

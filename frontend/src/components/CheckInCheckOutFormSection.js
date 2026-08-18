@@ -8,6 +8,7 @@ import QRScannerField from './QRScannerField';
 import SearchableSelect from './SearchableSelect';
 
 import { parseInventoryQrValue } from '../utils/qrPayload';
+import { CITY_OPTIONS } from '../constants/cityOptions';
 
 import styles from '../styles/CheckInCheckOutFormSection.styles';
 
@@ -19,23 +20,20 @@ import styles from '../styles/CheckInCheckOutFormSection.styles';
  * simpler single-form layout in the screenshot. Field order follows
  * the screenshot's own two-column split.
  *
- * Rehab Unit is built and shown normally (SearchableSelect, tied to
- * the selected Property, same as Unit on the other forms) but is
- * intentionally EXCLUDED from the submitted payload for now - see
- * the comment in the screen where the payload is built.
+ * handleRehabUnitChange added - Zoho's Unit field expects the
+ * display NAME, not the lookup ID (this fix already existed in
+ * RehabFormSection.js, but was missing here).
+ *
+ * City now imports the shared CITY_OPTIONS from
+ * constants/cityOptions.js (same list every form uses) instead of
+ * defining its own local copy.
  *
  * ASSUMPTIONS (screenshot-only, no confirmed Zoho picklist values
- * for City/Job Type/Action beyond what was explicitly given):
- * - CITY_OPTIONS: same list as Work Order / Rehab Order.
+ * for Job Type/Action beyond what was explicitly given):
  * - JOB_TYPE_OPTIONS: exactly Rehab / Work Order, as specified.
  * - ACTION_OPTIONS: exactly Check-in / Check-out, as specified.
  * ----------------------------------------------------------------
  */
-const CITY_OPTIONS = [
-  { label: 'Youngstown', value: 'Youngstown' },
-  { label: 'Toledo', value: 'Toledo' },
-  { label: 'Lima', value: 'Lima' },
-];
 
 const JOB_TYPE_OPTIONS = [
   { label: 'Rehab', value: 'Rehab' },
@@ -69,8 +67,18 @@ export default function CheckInCheckOutFormSection({
   const handlePropertyChange = (propertyId) => {
     // Clear the existing Rehab Unit because it may belong to the
     // previously selected Property - same pattern as the other forms.
-    onChange({ ...entry, property: propertyId, rehabUnit: '' });
+    onChange({ ...entry, property: propertyId, rehabUnit: '', rehabUnitName: '' });
     onPropertySelected(propertyId);
+  };
+
+  const handleRehabUnitChange = (unitId) => {
+    const selectedUnit = rehabUnitOptions.find((option) => option.value === unitId);
+
+    onChange({
+      ...entry,
+      rehabUnit: unitId,
+      rehabUnitName: selectedUnit?.label || '',
+    });
   };
 
   const handleQrScan = (scannedValue) => {
@@ -204,7 +212,7 @@ export default function CheckInCheckOutFormSection({
             emptyMessage={
               entry.property ? 'No units found for this property.' : 'Select a property first.'
             }
-            onChange={(value) => updateField('rehabUnit', value)}
+            onChange={handleRehabUnitChange}
             onRemoteSearch={(query) => onRehabUnitSearch(entry.property, query)}
           />
 

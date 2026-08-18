@@ -11,20 +11,42 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * toPublicUser
+ * ----------------------------------------------------------------
+ * Now also returns name/city - the frontend's "Existing users" list
+ * row already displays these (built earlier), but without reading
+ * them here they'd silently show blank/fallback to email only.
+ * ----------------------------------------------------------------
+ */
 function toPublicUser(record) {
   return {
     id: record.ID,
     email: record[config.zoho.fields.email],
+    name: record[config.zoho.fields.name],
+    city: record[config.zoho.fields.city],
     isAdmin: record[config.zoho.fields.isAdmin] === "Yes",
   };
 }
 
 async function addUser(req, res) {
   const email = normalizeEmail(req.body.email);
+
+  const name = String(req.body.name || "").trim();
+  const city = String(req.body.city || "").trim();
+
   const isAdmin = Boolean(req.body.isAdmin);
 
   if (!isValidEmail(email)) {
     return res.status(400).json({ detail: "Please provide a valid email address." });
+  }
+
+  if (!name) {
+    return res.status(400).json({ detail: "Please provide the technician's name." });
+  }
+
+  if (!city) {
+    return res.status(400).json({ detail: "Please select a city." });
   }
 
   const existing = await zohoUserService.findUserByEmail(email);
@@ -35,12 +57,14 @@ async function addUser(req, res) {
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
-  await zohoUserService.createUser({ email, passwordHash, isAdmin });
+  await zohoUserService.createUser({ name, city, email, passwordHash, isAdmin });
 
   const emailResult = await sendTempPasswordEmail({ toEmail: email, tempPassword, isAdmin });
 
   return res.status(201).json({
     email,
+    name,
+    city,
     isAdmin,
     emailDelivered: emailResult.delivered,
     detail: emailResult.delivered

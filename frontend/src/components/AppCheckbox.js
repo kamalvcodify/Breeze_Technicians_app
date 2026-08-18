@@ -8,14 +8,15 @@ import styles from '../styles/AppCheckbox.styles';
 /**
  * components/AppCheckbox.js
  * ----------------------------------------------------------------
- * A real single checkbox with a label. This existed briefly during
- * Rehab Order work and was removed because that form's "Rehab2/
- * Rehab3" turned out to be an add-entry pattern, not real
- * checkboxes. Rent Ready Checklist's ~29 items ARE genuine
- * booleans, so this is back for real this time.
+ * labelStyle added (optional) - lets a caller override the label's
+ * text styling without duplicating the checkbox-drawing logic.
+ * Used by RentReadyChecklistFormSection.js's new section "select
+ * all" master checkbox, which needs to look like the existing bold
+ * section heading, not a regular small item label. Existing usages
+ * (no labelStyle passed) are unaffected.
  * ----------------------------------------------------------------
  */
-export default function AppCheckbox({ label, checked, onChange, disabled = false }) {
+export default function AppCheckbox({ label, checked, onChange, disabled = false, labelStyle }) {
   return (
     <TouchableOpacity
       style={styles.row}
@@ -26,7 +27,7 @@ export default function AppCheckbox({ label, checked, onChange, disabled = false
       <View style={[styles.box, checked && styles.boxChecked, disabled && styles.boxDisabled]}>
         {checked && <Ionicons name="checkmark" size={14} color={colors.textOnDark} />}
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, labelStyle]}>{label}</Text>
     </TouchableOpacity>
   );
 }

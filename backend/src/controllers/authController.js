@@ -32,6 +32,37 @@ function readPasswordHash(record) {
   return record[config.zoho.fields.password];
 }
 
+function readName(record) {
+  return record[config.zoho.fields.name] || "";
+}
+
+function readCity(record) {
+  return record[config.zoho.fields.city] || "";
+}
+
+/**
+ * readTermsAccepted
+ * ----------------------------------------------------------------
+ * NEW - reads the Term_Conditions dropdown field (values:
+ * "Accepted" / "Not Accepted"). Treated as accepted ONLY when the
+ * value is exactly "Accepted" - any other value (including blank/
+ * missing, for accounts created before this field existed) is
+ * treated as not yet accepted, which is the safer default.
+ * ----------------------------------------------------------------
+ */
+function readTermsAccepted(record) {
+  return record[config.zoho.fields.termsAccepted] === "Accepted";
+}
+
+/**
+ * checkEmail
+ * ----------------------------------------------------------------
+ * UPDATED: now also returns termsAccepted alongside exists. The
+ * frontend uses this at the email-entry step (before password) to
+ * decide whether to show the Terms & Conditions acceptance screen
+ * instead of the password field.
+ * ----------------------------------------------------------------
+ */
 async function checkEmail(req, res) {
   const email = normalizeEmail(req.body.email);
   if (!isValidEmail(email)) {
@@ -39,7 +70,42 @@ async function checkEmail(req, res) {
   }
 
   const record = await zohoUserService.findUserByEmail(email);
-  return res.json({ exists: Boolean(record) });
+
+  if (!record) {
+    return res.json({ exists: false, termsAccepted: false });
+  }
+
+  return res.json({
+    exists: true,
+    termsAccepted: readTermsAccepted(record),
+  });
+}
+
+/**
+ * acceptTerms
+ * ----------------------------------------------------------------
+ * NEW - called when the user taps "I Accept" on the Terms &
+ * Conditions screen, before the password step. Updates the Users
+ * record's Term_Conditions field to "Accepted" so this is never
+ * shown again for this account.
+ * ----------------------------------------------------------------
+ */
+async function acceptTerms(req, res) {
+  const email = normalizeEmail(req.body.email);
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ detail: "Please provide a valid email address." });
+  }
+
+  const record = await zohoUserService.findUserByEmail(email);
+
+  if (!record) {
+    return res.status(404).json({ detail: "No account found for this email." });
+  }
+
+  await zohoUserService.updateUserTermsAccepted(record.ID, true);
+
+  return res.json({ detail: "Terms and conditions accepted." });
 }
 
 async function login(req, res) {
@@ -60,13 +126,21 @@ async function login(req, res) {
     return res.status(401).json({ detail: "Incorrect email or password." });
   }
 
-  const user = { email: readEmail(record), isAdmin: readIsAdmin(record) };
+  const user = {
+    email: readEmail(record),
+    isAdmin: readIsAdmin(record),
+    name: readName(record),
+    city: readCity(record),
+  };
+
   const token = signToken(user);
 
   return res.json({
     token,
     email: user.email,
     isAdmin: user.isAdmin,
+    name: user.name,
+    city: user.city,
   });
 }
 
@@ -120,4 +194,4 @@ async function forgotPassword(req, res) {
   return res.json({ detail: "Password updated successfully. You can now log in." });
 }
 
-module.exports = { checkEmail, login, signup, forgotPassword };
+module.exports = { checkEmail, login, signup, forgotPassword, acceptTerms };
