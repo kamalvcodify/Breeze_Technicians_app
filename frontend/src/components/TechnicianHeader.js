@@ -15,6 +15,8 @@ import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import styles from '../styles/TechnicianHeader.styles';
 
+import ShiftToggleButton from './ShiftToggleButton';
+
 const DESKTOP_WIDTH = 900;
 const CHEVRON_ANIMATION_MS = 160;
 
@@ -23,9 +25,17 @@ const CHEVRON_ANIMATION_MS = 160;
  * ----------------------------------------------------------------
  * Nav bar shown on every technician/admin screen.
  *
+ * NEW: Admin now has a "Reports" nav link too (desktop + mobile),
+ * using the exact same expandable-peek-submenu pattern already
+ * built for the technician side - previously the isAdmin branch
+ * only showed the small "Admin Panel" badge with no navigation
+ * link at all. This requires AppNavigator.js's admin MainStack to
+ * register Reports/ReportList/ReportDetail alongside AdminPanel -
+ * see that file.
+ *
  * IMPORTANT: every top-level nav row (Home, My Assigned Work
  * Orders, Reports, Privacy Policy) is built from the SAME row
- * component (DesktopNavRow / MobileNavRow below). "Reports" now
+ * component (DesktopNavRow / MobileNavRow below). "Reports"
  * follows the exact same expandable-peek-submenu pattern as "Home"
  * - tapping the label navigates to the Reports landing screen,
  * tapping the separate chevron/+/- icon toggles a quick-access
@@ -251,9 +261,28 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
         {isDesktop ? (
           <View style={styles.desktopArea}>
             {isAdmin ? (
-              <View style={styles.adminBadge}>
-                <Ionicons name="shield-checkmark-outline" size={14} color={colors.blue} />
-                <Text style={styles.adminBadgeText}>Admin Panel</Text>
+              <View style={styles.desktopNavigation}>
+                <DesktopNavRow
+                  label="Admin Panel"
+                  active={activeRoute === 'AdminPanel'}
+                  onPress={() => goTo('AdminPanel')}
+                />
+
+                <View>
+                  <DesktopNavRow
+                    label="Reports"
+                    active={activeRoute === 'Reports'}
+                    onPress={() => goTo('Reports')}
+                    trailing={reportsExpandTrailing(false)}
+                  />
+                  {reportsMenuOpen && <ReportsMenu />}
+                </View>
+
+                <DesktopNavRow
+                  label="Privacy Policy"
+                  active={activeRoute === 'Privacy'}
+                  onPress={() => goTo('PrivacyPolicy')}
+                />
               </View>
             ) : (
               <View style={styles.desktopNavigation}>
@@ -292,6 +321,8 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
             )}
 
             <View style={styles.accountArea}>
+              {!isAdmin && <ShiftToggleButton />}
+
               <Text style={styles.accountEmail} numberOfLines={1}>
                 {email}
               </Text>
@@ -302,14 +333,18 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
             </View>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => setMobileMenuOpen(true)}
-            accessibilityLabel="Open menu"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="menu" size={30} color={colors.textOnDark} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {!isAdmin && <ShiftToggleButton />}
+
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => setMobileMenuOpen(true)}
+              accessibilityLabel="Open menu"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="menu" size={30} color={colors.textOnDark} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -341,10 +376,21 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
             </View>
 
             {isAdmin ? (
-              <View style={styles.mobileAdminBadgeRow}>
-                <Ionicons name="shield-checkmark-outline" size={14} color={colors.blue} />
-                <Text style={styles.mobileAdminBadgeText}>Admin Panel</Text>
-              </View>
+              <>
+                <MobileNavRow
+                  label="Admin Panel"
+                  onPress={() => goTo('AdminPanel')}
+                />
+
+                <MobileNavRow
+                  label="Reports"
+                  onPress={() => goTo('Reports')}
+                  trailing={reportsExpandTrailing(true)}
+                />
+                {reportsMenuOpen && <ReportsMenu mobile />}
+
+                <MobileNavRow label="Privacy Policy" onPress={() => goTo('PrivacyPolicy')} />
+              </>
             ) : (
               <>
                 <MobileNavRow

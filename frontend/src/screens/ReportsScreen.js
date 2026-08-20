@@ -3,6 +3,7 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import TechnicianLayout from '../components/TechnicianLayout';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import styles from '../styles/ReportsScreen.styles';
 
@@ -12,6 +13,12 @@ import styles from '../styles/ReportsScreen.styles';
  * Landing grid for the Reports section - same fixed 2-up card
  * pattern as Home's Services grid. Each card opens
  * ReportListScreen with a different reportKey.
+ *
+ * FIX: isAdmin now read from useAuth() and passed to
+ * TechnicianLayout - previously this was omitted entirely, so the
+ * header always defaulted to the technician nav (Home/My Assigned
+ * Work Orders/Start Shift) regardless of who was actually logged
+ * in, even for an admin.
  * ----------------------------------------------------------------
  */
 const REPORTS = [
@@ -48,14 +55,18 @@ const REPORTS = [
 ];
 
 export default function ReportsScreen({ navigation }) {
+  const { isAdmin } = useAuth();
+
   return (
-    <TechnicianLayout navigation={navigation} activeRoute="Reports">
+    <TechnicianLayout navigation={navigation} activeRoute="Reports" isAdmin={isAdmin}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerBar}>
           <View style={styles.headerBarInner}>
             <View style={styles.headerTextGroup}>
               <Text style={styles.headerTitle}>Reports</Text>
-              <Text style={styles.headerSubtitle}>View your submitted records.</Text>
+              <Text style={styles.headerSubtitle}>
+                {isAdmin ? "View everyone's submitted records." : 'View your submitted records.'}
+              </Text>
             </View>
 
             <View style={styles.headerIconBadge}>

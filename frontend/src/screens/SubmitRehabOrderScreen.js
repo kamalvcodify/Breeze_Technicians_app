@@ -213,10 +213,18 @@ export default function SubmitRehabOrderScreen({ navigation }) {
         return;
       }
 
+      const baseMessage =
+        result.response?.data?.detail || 'The rehab order was submitted successfully.';
+      const attachmentNote = result.response?.data?.attachmentUploadStatus;
+      const hasAttachmentFailure =
+        !!attachmentNote && attachmentNote.includes('Failed to upload');
+
       setPopup({
         visible: true,
         title: 'Rehab order submitted',
-        message: result.response?.data?.detail || 'The rehab order was submitted successfully.',
+        message: hasAttachmentFailure
+          ? `${baseMessage}\n\n${attachmentNote}`
+          : baseMessage,
         success: true,
       });
     } catch (error) {

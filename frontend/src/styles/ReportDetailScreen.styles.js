@@ -67,6 +67,12 @@ export default StyleSheet.create({
     overflow: 'hidden',
   },
 
+  imagesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: spacing.sm,
+  },
+
   fieldRow: {
     flexDirection: 'row',
     minHeight: 44,

@@ -32,15 +32,6 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * addMoveOutFields
- * ----------------------------------------------------------------
- * NEW: pre-creates one subform row PER attachment (sequence number
- * only, image_sequence field, subform "Photo") - same pattern
- * proven working on Work Order/Rehab Order. Single-entry form, so
- * no per-ticket looping needed.
- * ----------------------------------------------------------------
- */
 function addMoveOutFields(data, entry, fieldConfig) {
   setField(data, fieldConfig.technicianName, entry.technicianName);
 
@@ -128,12 +119,6 @@ function extractRecordId(zohoResponse) {
   );
 }
 
-/**
- * fetchRecordWithRetry
- * ----------------------------------------------------------------
- * Same retry-with-delay pattern proven necessary on Work Order.
- * ----------------------------------------------------------------
- */
 async function fetchRecordWithRetry({ reportLinkName, recordId, subformKey }) {
   const delaysMs = [800, 1500, 2500];
 
@@ -178,11 +163,9 @@ async function fetchRecordWithRetry({ reportLinkName, recordId, subformKey }) {
 /**
  * uploadMoveOutAttachments
  * ----------------------------------------------------------------
- * Mirrors Work Order's uploadTicketAttachments()/Rehab Order's
- * uploadEntryAttachments() exactly, single-entry version. Uses
- * config.zoho.reports.moveOut ("All_Move_out_Checklist_Report") for
- * BOTH the re-fetch and the upload call, as confirmed for this
- * form specifically.
+ * NEW: now also tracks failedFileNames - used to build a specific
+ * "failed to upload: X.jpg, Y.jpg" message instead of just a
+ * count.
  * ----------------------------------------------------------------
  */
 async function uploadMoveOutAttachments({ recordId, entry }) {
@@ -190,7 +173,7 @@ async function uploadMoveOutAttachments({ recordId, entry }) {
   const fieldConfig = moveOutConfig.fields;
 
   if (!Array.isArray(entry.attachments) || entry.attachments.length === 0) {
-    return { uploaded: 0, failed: 0, errors: [] };
+    return { uploaded: 0, failed: 0, errors: [], failedFileNames: [] };
   }
 
   const attachmentReportLinkName = config.zoho.reports.moveOut;
@@ -204,33 +187,47 @@ async function uploadMoveOutAttachments({ recordId, entry }) {
       subformKey: fieldConfig.attachmentsSubform,
     });
   } catch (error) {
+    const failedFileNames = entry.attachments.map(
+      (attachment, index) =>
+        attachment.originalName || `photo-${index + 1}.jpg`,
+    );
+
     return {
       uploaded: 0,
-      failed: entry.attachments.length,
+      failed: failedFileNames.length,
       errors: [
         `Could not re-fetch the created record to upload images: ${error.message}`,
       ],
+      failedFileNames,
     };
   }
 
   const subformRows = fetchedRecord?.[fieldConfig.attachmentsSubform];
 
   if (!Array.isArray(subformRows)) {
+    const failedFileNames = entry.attachments.map(
+      (attachment, index) =>
+        attachment.originalName || `photo-${index + 1}.jpg`,
+    );
+
     return {
       uploaded: 0,
-      failed: entry.attachments.length,
+      failed: failedFileNames.length,
       errors: [
         `No subform rows found for ${fieldConfig.attachmentsSubform} on record ${recordId}.`,
       ],
+      failedFileNames,
     };
   }
 
   let uploaded = 0;
   const errors = [];
+  const failedFileNames = [];
 
   for (let index = 0; index < entry.attachments.length; index += 1) {
     const attachment = entry.attachments[index];
     const expectedSequence = String(index + 1);
+    const fileName = attachment.originalName || `photo-${expectedSequence}.jpg`;
 
     const matchingRow = subformRows.find(
       (row) =>
@@ -238,8 +235,10 @@ async function uploadMoveOutAttachments({ recordId, entry }) {
     );
 
     if (!matchingRow) {
+      failedFileNames.push(fileName);
+
       errors.push(
-        `Could not find a matching subform row for sequence ${expectedSequence} in ${fieldConfig.attachmentsSubform}.`,
+        `Could not find a matching subform row for sequence ${expectedSequence} (${fileName}) in ${fieldConfig.attachmentsSubform}.`,
       );
       continue;
     }
@@ -248,7 +247,7 @@ async function uploadMoveOutAttachments({ recordId, entry }) {
       const formData = new FormData();
 
       formData.append("file", attachment.buffer, {
-        filename: attachment.originalName || `photo-${expectedSequence}.jpg`,
+        filename: fileName,
         contentType: attachment.mimeType || "image/jpeg",
       });
 
@@ -259,13 +258,44 @@ async function uploadMoveOutAttachments({ recordId, entry }) {
 
       uploaded += 1;
     } catch (error) {
+      failedFileNames.push(fileName);
+
       errors.push(
-        `Failed to upload image ${index + 1}: ${error?.response?.data?.message || error.message}`,
+        `Failed to upload ${fileName}: ${error?.response?.data?.message || error.message}`,
       );
     }
   }
 
-  return { uploaded, failed: errors.length, errors };
+  return { uploaded, failed: failedFileNames.length, errors, failedFileNames };
+}
+
+/**
+ * markAttachmentSyncComplete
+ * ----------------------------------------------------------------
+ * Same rules as the other two forms. Move Out is single-entry, so
+ * there's no "aggregate across tickets" nuance - it's just this
+ * record had attachments or it didn't.
+ * ----------------------------------------------------------------
+ */
+async function markAttachmentSyncComplete({ recordId, reportLinkName }) {
+  try {
+    await creatorRequest("patch", `/report/${reportLinkName}/${recordId}`, {
+      data: {
+        data: {
+          [config.zoho.attachmentSyncField]: true,
+        },
+      },
+    });
+
+    return true;
+  } catch (error) {
+    console.error(
+      "[Process Move Out] Failed to set Attachment_Sync:",
+      error?.response?.data || error.message,
+    );
+
+    return false;
+  }
 }
 
 async function createMoveOutEntry({ entry }) {
@@ -301,7 +331,13 @@ async function createMoveOutEntry({ entry }) {
   const attachmentCount = (entry.attachments || []).length;
 
   let attachmentUploadStatus = "No attachments supplied.";
-  let attachmentUploadResult = { uploaded: 0, failed: 0, errors: [] };
+  let attachmentUploadResult = {
+    uploaded: 0,
+    failed: 0,
+    errors: [],
+    failedFileNames: [],
+  };
+  let attachmentSyncUpdated = false;
 
   if (attachmentCount > 0) {
     attachmentUploadResult = await uploadMoveOutAttachments({
@@ -312,7 +348,7 @@ async function createMoveOutEntry({ entry }) {
     attachmentUploadStatus =
       attachmentUploadResult.failed === 0
         ? `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded successfully.`
-        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded; ${attachmentUploadResult.failed} failed. The Move Out checklist itself was still submitted successfully.`;
+        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded. Failed to upload: ${attachmentUploadResult.failedFileNames.join(", ")}.`;
 
     if (attachmentUploadResult.errors.length > 0) {
       console.error(
@@ -320,6 +356,17 @@ async function createMoveOutEntry({ entry }) {
         attachmentUploadResult.errors,
       );
     }
+
+    // Same 8-second delay as Work Order/Rehab Order - gives Zoho
+    // time to settle the just-uploaded image before the
+    // Attachment_Sync update fires, which the attached workflow
+    // needs to see reliably.
+    await wait(2000);
+
+    attachmentSyncUpdated = await markAttachmentSyncComplete({
+      recordId,
+      reportLinkName: config.zoho.reports.moveOut,
+    });
   }
 
   return {
@@ -327,6 +374,7 @@ async function createMoveOutEntry({ entry }) {
     zohoResponse,
     attachmentUploadStatus,
     attachmentUploadResult,
+    attachmentSyncUpdated,
   };
 }
 

@@ -243,10 +243,18 @@ const handleSubmit = async () => {
         throw zohoError;
       }
 
+      const baseMessage =
+        response.data.detail || 'The work order was submitted successfully.';
+      const attachmentNote = response.data.attachmentUploadStatus;
+      const hasAttachmentFailure =
+        !!attachmentNote && attachmentNote.includes('Failed to upload');
+
       setPopup({
         visible: true,
         title: 'Work order submitted',
-        message: response.data.detail || 'The work order was submitted successfully.',
+        message: hasAttachmentFailure
+          ? `${baseMessage}\n\n${attachmentNote}`
+          : baseMessage,
         success: true,
       });
     } catch (error) {

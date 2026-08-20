@@ -122,4 +122,56 @@ export default StyleSheet.create({
     fontSize: typography.size.body,
     fontWeight: typography.weight.bold,
   },
+
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    backgroundColor: colors.blue,
+  },
+  viewButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textOnDark,
+    marginRight: 4,
+  },
+  viewButtonSpacer: {
+    width: 70,
+  },
+
+  paginationBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  pageButtonDisabled: {
+    opacity: 0.4,
+  },
+  pageButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.blue,
+    marginHorizontal: 4,
+  },
+  pageButtonTextDisabled: {
+    color: colors.textFaint,
+  },
+  pageIndicator: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
 });

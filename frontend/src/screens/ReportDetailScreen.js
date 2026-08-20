@@ -3,7 +3,9 @@ import { ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import TechnicianLayout from '../components/TechnicianLayout';
+import ReportImage from '../components/ReportImage';
 import { CHECKLIST_SECTIONS } from '../components/RentReadyChecklistFormSection';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import styles from '../styles/ReportDetailScreen.styles';
 
@@ -12,17 +14,19 @@ import styles from '../styles/ReportDetailScreen.styles';
  * ----------------------------------------------------------------
  * ONE generic detail screen for all 5 reports. `row` (passed via
  * navigation params from ReportListScreen) already contains
- * everything needed - no fetch here.
+ * everything needed - no fetch here, EXCEPT for images, which each
+ * load independently via ReportImage.
  *
- * row.groups: array of { title, fields: [{label, value}] } -
- * rendered as stacked sections (Ticket 1, Ticket 2, Ticket 3 for
- * Work Order; Rehab Order/Rehab2/Rehab3 for Rehab Order; a single
- * section for the single-entry forms).
+ * row.groups: array of { title, fields: [{label, value}], images:
+ * [imageRef, imageRef, ...] } - each imageRef is a structured
+ * object ({reportLinkName, recordId, subformName, fieldName,
+ * subformRecordId}), NOT a plain path string (fix from earlier -
+ * the raw Image field string wasn't a working download path on its
+ * own; the backend reconstructs the real URL from these 5 pieces).
  *
- * row.checklist (Rent Ready Checklist only): {shortKey: boolean} -
- * rendered using the SAME labels already defined in
- * RentReadyChecklistFormSection.js's CHECKLIST_SECTIONS, so the 29
- * item labels aren't duplicated anywhere.
+ * row.checklist (Rent Ready Checklist only): unchanged.
+ *
+ * isAdmin read from useAuth() and passed to TechnicianLayout.
  * ----------------------------------------------------------------
  */
 function FieldRow({ label, value }) {
@@ -34,8 +38,11 @@ function FieldRow({ label, value }) {
   );
 }
 
-function DetailGroup({ title, fields }) {
-  if (!fields || fields.length === 0) {
+function DetailGroup({ title, fields, images }) {
+  const hasFields = fields && fields.length > 0;
+  const hasImages = images && images.length > 0;
+
+  if (!hasFields && !hasImages) {
     return null;
   }
 
@@ -43,11 +50,21 @@ function DetailGroup({ title, fields }) {
     <View style={styles.group}>
       <Text style={styles.groupTitle}>{title}</Text>
 
-      <View style={styles.groupCard}>
-        {fields.map((field) => (
-          <FieldRow key={field.label} label={field.label} value={field.value} />
-        ))}
-      </View>
+      {hasFields && (
+        <View style={styles.groupCard}>
+          {fields.map((field) => (
+            <FieldRow key={field.label} label={field.label} value={field.value} />
+          ))}
+        </View>
+      )}
+
+      {hasImages && (
+        <View style={styles.imagesRow}>
+          {images.map((imageRef) => (
+            <ReportImage key={imageRef.subformRecordId} imageRef={imageRef} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -84,9 +101,10 @@ function ChecklistGroup({ checklist }) {
 
 export default function ReportDetailScreen({ navigation, route }) {
   const { title, row } = route.params || {};
+  const { isAdmin } = useAuth();
 
   return (
-    <TechnicianLayout navigation={navigation} activeRoute="Reports">
+    <TechnicianLayout navigation={navigation} activeRoute="Reports" isAdmin={isAdmin}>
       <View style={styles.headerBar}>
         <View style={styles.headerBarInner}>
           <View style={styles.headerTextGroup}>
@@ -103,7 +121,12 @@ export default function ReportDetailScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           {(row?.groups || []).map((group) => (
-            <DetailGroup key={group.title} title={group.title} fields={group.fields} />
+            <DetailGroup
+              key={group.title}
+              title={group.title}
+              fields={group.fields}
+              images={group.images}
+            />
           ))}
 
           <ChecklistGroup checklist={row?.checklist} />

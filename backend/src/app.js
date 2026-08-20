@@ -12,6 +12,7 @@ const moveOutRoutes = require("./routes/moveOutRoutes");
 const rentReadyChecklistRoutes = require("./routes/rentReadyChecklistRoutes");
 const reportsRoutes = require("./routes/reportsRoutes");
 const trackingRoutes = require("./routes/trackingRoutes");
+const simpleShiftRoutes = require("./routes/simpleShiftRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
 
@@ -37,6 +38,7 @@ app.use("/api/move-out", moveOutRoutes);
 app.use("/api/rent-ready-checklist", rentReadyChecklistRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/tracking", trackingRoutes);
+app.use("/api/simple-shift", simpleShiftRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

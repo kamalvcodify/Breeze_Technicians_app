@@ -1,97 +1,59 @@
-const FormData = require('form-data');
+const FormData = require("form-data");
 
-const config = require(
-  '../config/env'
-);
+const config = require("../config/env");
 
-const {
-  creatorRequest,
-  creatorUploadFile,
-} = require(
-  './zohoCreatorService'
-);
+const { creatorRequest, creatorUploadFile } = require("./zohoCreatorService");
 
-function setField(
-  data,
-  fieldName,
-  value
-) {
-  if (
-    !fieldName ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
+function setField(data, fieldName, value) {
+  if (!fieldName || value === undefined || value === null || value === "") {
     return;
   }
 
   data[fieldName] = value;
 }
 
-function isTemporaryUnitValue(
-  value
-) {
-  return String(value || '')
-    .startsWith('TEMP_');
+function isTemporaryUnitValue(value) {
+  return String(value || "").startsWith("TEMP_");
 }
 
-function formatCreatorDate(
-  value
-) {
+function formatCreatorDate(value) {
   if (!value) {
-    return '';
+    return "";
   }
 
-  const match =
-    String(value).match(
-      /^(\d{4})-(\d{2})-(\d{2})$/
-    );
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
   if (!match) {
     return value;
   }
 
-  const [, year, month, day] =
-    match;
+  const [, year, month, day] = match;
 
   return `${month}/${day}/${year}`;
 }
 
-function formatCreatorTime(
-  value
-) {
+function formatCreatorTime(value) {
   if (!value) {
-    return '';
+    return "";
   }
 
-  const cleanValue =
-    String(value).trim();
+  const cleanValue = String(value).trim();
 
-  if (
-    /am|pm/i.test(cleanValue)
-  ) {
+  if (/am|pm/i.test(cleanValue)) {
     return cleanValue.toLowerCase();
   }
 
-  const match =
-    cleanValue.match(
-      /^(\d{1,2}):(\d{2})$/
-    );
+  const match = cleanValue.match(/^(\d{1,2}):(\d{2})$/);
 
   if (!match) {
     return cleanValue;
   }
 
-  let hour =
-    Number(match[1]);
+  let hour = Number(match[1]);
 
-  const minute =
-    match[2];
+  const minute = match[2];
 
-  const meridiem =
-    hour >= 12
-      ? 'pm'
-      : 'am';
+  const meridiem = hour >= 12 ? "pm" : "am";
 
   hour %= 12;
 
@@ -102,100 +64,34 @@ function formatCreatorTime(
   return `${hour}:${minute} ${meridiem}`;
 }
 
-function addTicketFields(
-  data,
-  ticket,
-  fieldConfig,
-  enabled
-) {
-  if (
-    enabled &&
-    fieldConfig.enabled
-  ) {
-    setField(
-      data,
-      fieldConfig.enabled,
-      true
-    );
+function addTicketFields(data, ticket, fieldConfig, enabled) {
+  if (enabled && fieldConfig.enabled) {
+    setField(data, fieldConfig.enabled, true);
   }
 
-  setField(
-    data,
-    fieldConfig.ticketId,
-    ticket.ticketId
-  );
+  setField(data, fieldConfig.ticketId, ticket.ticketId);
 
-  setField(
-    data,
-    fieldConfig.city,
-    ticket.city
-  );
+  setField(data, fieldConfig.city, ticket.city);
 
-  setField(
-    data,
-    fieldConfig.technicianName,
-    ticket.technicianName
-  );
+  setField(data, fieldConfig.technicianName, ticket.technicianName);
 
-  setField(
-    data,
-    fieldConfig.property,
-    ticket.property
-  );
+  setField(data, fieldConfig.property, ticket.property);
 
-  if (
-    !isTemporaryUnitValue(
-      ticket.unit
-    )
-  ) {
-    setField(
-      data,
-      fieldConfig.unit,
-      ticket.unitName
-    );
+  if (!isTemporaryUnitValue(ticket.unit)) {
+    setField(data, fieldConfig.unit, ticket.unitName);
   }
 
-  setField(
-    data,
-    fieldConfig.status,
-    ticket.status
-  );
+  setField(data, fieldConfig.status, ticket.status);
 
-  setField(
-    data,
-    fieldConfig.clockIn,
-    formatCreatorTime(
-      ticket.clockIn
-    )
-  );
+  setField(data, fieldConfig.clockIn, formatCreatorTime(ticket.clockIn));
 
-  setField(
-    data,
-    fieldConfig.clockOut,
-    formatCreatorTime(
-      ticket.clockOut
-    )
-  );
+  setField(data, fieldConfig.clockOut, formatCreatorTime(ticket.clockOut));
 
-  setField(
-    data,
-    fieldConfig.jobType,
-    ticket.jobType
-  );
+  setField(data, fieldConfig.jobType, ticket.jobType);
 
-  setField(
-    data,
-    fieldConfig.date,
-    formatCreatorDate(
-      ticket.date
-    )
-  );
+  setField(data, fieldConfig.date, formatCreatorDate(ticket.date));
 
-  setField(
-    data,
-    fieldConfig.workDetails,
-    ticket.workDetails
-  );
+  setField(data, fieldConfig.workDetails, ticket.workDetails);
 
   if (
     Array.isArray(ticket.attachments) &&
@@ -203,60 +99,31 @@ function addTicketFields(
     fieldConfig.attachmentsSubform &&
     fieldConfig.attachmentSequenceField
   ) {
-    data[fieldConfig.attachmentsSubform] =
-      ticket.attachments.map((_, index) => ({
-        [fieldConfig.attachmentSequenceField]:
-          String(index + 1),
-      }));
+    data[fieldConfig.attachmentsSubform] = ticket.attachments.map(
+      (_, index) => ({
+        [fieldConfig.attachmentSequenceField]: String(index + 1),
+      }),
+    );
   }
 }
 
-function buildCreatorPayload(
-  tickets,
-  technicianEmail
-) {
-  const workOrderConfig =
-    config.zoho.workOrder;
+function buildCreatorPayload(tickets, technicianEmail) {
+  const workOrderConfig = config.zoho.workOrder;
 
   const data = {};
 
-  setField(
-    data,
-    workOrderConfig.emailField,
-    technicianEmail
-  );
+  setField(data, workOrderConfig.emailField, technicianEmail);
 
   if (tickets[0]) {
-    addTicketFields(
-      data,
-      tickets[0],
-      workOrderConfig
-        .tickets
-        .ticket1,
-      false
-    );
+    addTicketFields(data, tickets[0], workOrderConfig.tickets.ticket1, false);
   }
 
   if (tickets[1]) {
-    addTicketFields(
-      data,
-      tickets[1],
-      workOrderConfig
-        .tickets
-        .ticket2,
-      true
-    );
+    addTicketFields(data, tickets[1], workOrderConfig.tickets.ticket2, true);
   }
 
   if (tickets[2]) {
-    addTicketFields(
-      data,
-      tickets[2],
-      workOrderConfig
-        .tickets
-        .ticket3,
-      true
-    );
+    addTicketFields(data, tickets[2], workOrderConfig.tickets.ticket3, true);
   }
 
   return {
@@ -264,60 +131,35 @@ function buildCreatorPayload(
   };
 }
 
-function validateZohoResponse(
-  zohoResponse
-) {
+function validateZohoResponse(zohoResponse) {
   if (!zohoResponse) {
-    const error =
-      new Error(
-        'Zoho Creator returned an empty response.'
-      );
+    const error = new Error("Zoho Creator returned an empty response.");
 
     error.statusCode = 502;
 
     throw error;
   }
 
-  if (
-    Number(zohoResponse.code) !==
-    3000
-  ) {
-    const messages =
-      Array.isArray(
-        zohoResponse.error
-      )
-        ? zohoResponse.error
-        : [
-            zohoResponse.message ||
-            'Unknown Zoho Creator error.',
-          ];
+  if (Number(zohoResponse.code) !== 3000) {
+    const messages = Array.isArray(zohoResponse.error)
+      ? zohoResponse.error
+      : [zohoResponse.message || "Unknown Zoho Creator error."];
 
-    const error =
-      new Error(
-        messages.join(', ')
-      );
+    const error = new Error(messages.join(", "));
 
     error.statusCode = 400;
-    error.zohoResponse =
-      zohoResponse;
+    error.zohoResponse = zohoResponse;
 
     throw error;
   }
 }
 
-function extractRecordId(
-  zohoResponse
-) {
-  if (
-    Array.isArray(
-      zohoResponse?.data
-    )
-  ) {
+function extractRecordId(zohoResponse) {
+  if (Array.isArray(zohoResponse?.data)) {
     return (
       zohoResponse.data[0]?.ID ||
       zohoResponse.data[0]?.id ||
-      zohoResponse.data[0]
-        ?.details?.id ||
+      zohoResponse.data[0]?.details?.id ||
       null
     );
   }
@@ -325,8 +167,7 @@ function extractRecordId(
   return (
     zohoResponse?.data?.ID ||
     zohoResponse?.data?.id ||
-    zohoResponse?.data
-      ?.details?.id ||
+    zohoResponse?.data?.details?.id ||
     zohoResponse?.details?.id ||
     null
   );
@@ -336,20 +177,6 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * fetchRecordWithRetry
- * ----------------------------------------------------------------
- * NEW - re-fetching the just-created record immediately (0ms
- * delay) may hit Zoho before its subform data is fully queryable
- * yet (a brief server-side indexing delay after Add Record
- * succeeds, before a Get Record call reflects the subform rows
- * with all field values populated). This retries a few times with
- * a short growing delay, and logs exactly what it sees each
- * attempt - so if this ISN'T the actual cause, that will be
- * directly visible in the backend terminal without needing another
- * manual curl round-trip.
- * ----------------------------------------------------------------
- */
 async function fetchRecordWithRetry({
   reportLinkName,
   recordId,
@@ -357,63 +184,46 @@ async function fetchRecordWithRetry({
 }) {
   const delaysMs = [800, 1500, 2500];
 
-  for (
-    let attempt = 0;
-    attempt < delaysMs.length;
-    attempt += 1
-  ) {
+  for (let attempt = 0; attempt < delaysMs.length; attempt += 1) {
     // eslint-disable-next-line no-await-in-loop
     await wait(delaysMs[attempt]);
 
     // eslint-disable-next-line no-await-in-loop
-    const recordResponse =
-      await creatorRequest(
-        'get',
-        `/report/${reportLinkName}/${recordId}`
-      );
+    const recordResponse = await creatorRequest(
+      "get",
+      `/report/${reportLinkName}/${recordId}`,
+    );
 
-    const fetchedRecord =
-      recordResponse?.data;
+    const fetchedRecord = recordResponse?.data;
 
     const subformSnapshot = {};
-    attachmentsSubformKeys.forEach(
-      (key) => {
-        subformSnapshot[key] =
-          fetchedRecord?.[key];
-      }
-    );
+    attachmentsSubformKeys.forEach((key) => {
+      subformSnapshot[key] = fetchedRecord?.[key];
+    });
 
     console.log(
       `[Work Order] Re-fetch attempt ${attempt + 1}/${delaysMs.length} for record ${recordId} - subform data:`,
-      JSON.stringify(subformSnapshot, null, 2)
+      JSON.stringify(subformSnapshot, null, 2),
     );
 
-    const hasAnyPopulatedSequence =
-      attachmentsSubformKeys.some(
-        (key) => {
-          const rows =
-            fetchedRecord?.[key];
-          return (
-            Array.isArray(rows) &&
-            rows.some(
-              (row) =>
-                row &&
-                Object.values(row).some(
-                  (value) =>
-                    value !== '' &&
-                    value !== undefined &&
-                    typeof value !==
-                      'object'
-                )
-            )
-          );
-        }
+    const hasAnyPopulatedSequence = attachmentsSubformKeys.some((key) => {
+      const rows = fetchedRecord?.[key];
+      return (
+        Array.isArray(rows) &&
+        rows.some(
+          (row) =>
+            row &&
+            Object.values(row).some(
+              (value) =>
+                value !== "" &&
+                value !== undefined &&
+                typeof value !== "object",
+            ),
+        )
       );
+    });
 
-    if (
-      hasAnyPopulatedSequence ||
-      attempt === delaysMs.length - 1
-    ) {
+    if (hasAnyPopulatedSequence || attempt === delaysMs.length - 1) {
       return fetchedRecord;
     }
   }
@@ -424,18 +234,15 @@ async function fetchRecordWithRetry({
 /**
  * uploadTicketAttachments
  * ----------------------------------------------------------------
- * Now retries the record re-fetch with short delays (see
- * fetchRecordWithRetry above) instead of a single immediate
- * attempt, and logs the subform snapshot on every attempt directly
- * to the backend terminal for diagnosis.
+ * NEW: now also tracks failedFileNames (the actual original
+ * filename of each attachment that failed to upload, or match to a
+ * subform row) - used to build a specific "failed to upload: X.jpg,
+ * Y.jpg" message instead of just a count. errors[] is kept as-is
+ * for detailed backend-console diagnostics.
  * ----------------------------------------------------------------
  */
-async function uploadTicketAttachments({
-  recordId,
-  tickets,
-}) {
-  const workOrderConfig =
-    config.zoho.workOrder;
+async function uploadTicketAttachments({ recordId, tickets }) {
+  const workOrderConfig = config.zoho.workOrder;
 
   const ticketConfigs = [
     workOrderConfig.tickets.ticket1,
@@ -443,159 +250,118 @@ async function uploadTicketAttachments({
     workOrderConfig.tickets.ticket3,
   ];
 
-  const ticketsWithAttachments =
-    tickets
-      .map((ticket, index) => ({
-        ticket,
-        fieldConfig:
-          ticketConfigs[index],
-      }))
-      .filter(
-        ({ ticket }) =>
-          Array.isArray(
-            ticket.attachments
-          ) &&
-          ticket.attachments.length >
-            0
-      );
+  const ticketsWithAttachments = tickets
+    .map((ticket, index) => ({
+      ticket,
+      fieldConfig: ticketConfigs[index],
+    }))
+    .filter(
+      ({ ticket }) =>
+        Array.isArray(ticket.attachments) && ticket.attachments.length > 0,
+    );
 
-  if (
-    ticketsWithAttachments.length ===
-    0
-  ) {
+  if (ticketsWithAttachments.length === 0) {
     return {
       uploaded: 0,
       failed: 0,
       errors: [],
+      failedFileNames: [],
     };
   }
 
-  const attachmentsSubformKeys =
-    ticketsWithAttachments.map(
-      ({ fieldConfig }) =>
-        fieldConfig.attachmentsSubform
-    );
+  const attachmentsSubformKeys = ticketsWithAttachments.map(
+    ({ fieldConfig }) => fieldConfig.attachmentsSubform,
+  );
 
-  /*
-   * FIX: use config.zoho.reports.workOrder ("Admin_All_Work_Orders")
-   * for BOTH the re-fetch and the upload call below, NOT
-   * workOrderConfig.reportLinkName ("All_Work_Orders"). Confirmed
-   * via a manual curl test that Admin_All_Work_Orders correctly
-   * returns the Attachments subform's image_sequence field, while
-   * All_Work_Orders silently omits it entirely - the same class of
-   * bug already found once during the Reports feature work: Zoho's
-   * Get Records API only returns fields configured as VISIBLE
-   * COLUMNS in that specific report, not automatically everything
-   * on the form/subform.
-   */
-  const attachmentReportLinkName =
-    config.zoho.reports.workOrder;
+  const attachmentReportLinkName = config.zoho.reports.workOrder;
 
   let fetchedRecord;
 
   try {
-    fetchedRecord =
-      await fetchRecordWithRetry({
-        reportLinkName:
-          attachmentReportLinkName,
-        recordId,
-        attachmentsSubformKeys,
-      });
+    fetchedRecord = await fetchRecordWithRetry({
+      reportLinkName: attachmentReportLinkName,
+      recordId,
+      attachmentsSubformKeys,
+    });
   } catch (error) {
-    const totalAttachments =
-      ticketsWithAttachments.reduce(
-        (total, { ticket }) =>
-          total +
-          ticket.attachments
-            .length,
-        0
-      );
+    const failedFileNames = ticketsWithAttachments.flatMap(({ ticket }) =>
+      ticket.attachments.map(
+        (attachment, index) =>
+          attachment.originalName || `photo-${index + 1}.jpg`,
+      ),
+    );
 
     return {
       uploaded: 0,
-      failed: totalAttachments,
+      failed: failedFileNames.length,
       errors: [
         `Could not re-fetch the created record to upload images: ${error.message}`,
       ],
+      failedFileNames,
     };
   }
 
   let uploaded = 0;
   const errors = [];
+  const failedFileNames = [];
 
-  for (const {
-    ticket,
-    fieldConfig,
-  } of ticketsWithAttachments) {
-    const subformRows =
-      fetchedRecord?.[
-        fieldConfig
-          .attachmentsSubform
-      ];
+  for (const { ticket, fieldConfig } of ticketsWithAttachments) {
+    const subformRows = fetchedRecord?.[fieldConfig.attachmentsSubform];
 
     if (!Array.isArray(subformRows)) {
+      ticket.attachments.forEach((attachment, index) => {
+        failedFileNames.push(
+          attachment.originalName || `photo-${index + 1}.jpg`,
+        );
+      });
+
       errors.push(
-        `No subform rows found for ${fieldConfig.attachmentsSubform} on record ${recordId}.`
+        `No subform rows found for ${fieldConfig.attachmentsSubform} on record ${recordId}.`,
       );
       continue;
     }
 
-    for (
-      let index = 0;
-      index <
-      ticket.attachments.length;
-      index += 1
-    ) {
-      const attachment =
-        ticket.attachments[index];
+    for (let index = 0; index < ticket.attachments.length; index += 1) {
+      const attachment = ticket.attachments[index];
 
-      const expectedSequence =
-        String(index + 1);
+      const expectedSequence = String(index + 1);
 
-      const matchingRow =
-        subformRows.find(
-          (row) =>
-            String(
-              row[
-                fieldConfig
-                  .attachmentSequenceField
-              ]
-            ) === expectedSequence
-        );
+      const fileName =
+        attachment.originalName || `photo-${expectedSequence}.jpg`;
+
+      const matchingRow = subformRows.find(
+        (row) =>
+          String(row[fieldConfig.attachmentSequenceField]) === expectedSequence,
+      );
 
       if (!matchingRow) {
+        failedFileNames.push(fileName);
+
         errors.push(
-          `Could not find a matching subform row for sequence ${expectedSequence} in ${fieldConfig.attachmentsSubform}.`
+          `Could not find a matching subform row for sequence ${expectedSequence} (${fileName}) in ${fieldConfig.attachmentsSubform}.`,
         );
         continue;
       }
 
       try {
-        const formData =
-          new FormData();
+        const formData = new FormData();
 
-        formData.append(
-          'file',
-          attachment.buffer,
-          {
-            filename:
-              attachment.originalName ||
-              `photo-${expectedSequence}.jpg`,
-            contentType:
-              attachment.mimeType ||
-              'image/jpeg',
-          }
-        );
+        formData.append("file", attachment.buffer, {
+          filename: fileName,
+          contentType: attachment.mimeType || "image/jpeg",
+        });
 
         await creatorUploadFile(
           `/report/${attachmentReportLinkName}/${recordId}/${fieldConfig.attachmentsSubform}.${fieldConfig.attachmentField}/${matchingRow.ID}/upload`,
-          formData
+          formData,
         );
 
         uploaded += 1;
       } catch (error) {
+        failedFileNames.push(fileName);
+
         errors.push(
-          `Failed to upload image ${index + 1} for ${fieldConfig.attachmentsSubform}: ${error?.response?.data?.message || error.message}`
+          `Failed to upload ${fileName} for ${fieldConfig.attachmentsSubform}: ${error?.response?.data?.message || error.message}`,
         );
       }
     }
@@ -603,108 +369,129 @@ async function uploadTicketAttachments({
 
   return {
     uploaded,
-    failed: errors.length,
+    failed: failedFileNames.length,
     errors,
+    failedFileNames,
   };
 }
 
-async function createWorkOrder({
-  tickets,
-  technicianEmail,
-}) {
-  const workOrderConfig =
-    config.zoho.workOrder;
+/**
+ * markAttachmentSyncComplete
+ * ----------------------------------------------------------------
+ * NEW - sets the shared Attachment_Sync checkbox field on the
+ * parent record, once per whole record (not per ticket), after the
+ * upload phase finishes. Per instructions:
+ *   - ALWAYS set true if the record had at least one attachment
+ *     anywhere (across any of its up-to-3 tickets), REGARDLESS of
+ *     whether every individual image upload actually succeeded -
+ *     partial failures are surfaced to the user as a UI message
+ *     naming the specific failed file(s), not reflected in this
+ *     field.
+ *   - NEVER sent at all (not even false) when the record had zero
+ *     attachments anywhere - Zoho has a workflow tied to this
+ *     field, and a record that never had images should not trigger
+ *     it.
+ * Uses the same Admin_ report link already required for the upload
+ * step itself.
+ * ----------------------------------------------------------------
+ */
+async function markAttachmentSyncComplete({ recordId, reportLinkName }) {
+  try {
+    await creatorRequest("patch", `/report/${reportLinkName}/${recordId}`, {
+      data: {
+        data: {
+          [config.zoho.attachmentSyncField]: true,
+        },
+      },
+    });
 
-  if (
-    !workOrderConfig
-      .formLinkName
-  ) {
-    const error =
-      new Error(
-        'Zoho Work Order form link name is not configured.'
-      );
+    return true;
+  } catch (error) {
+    console.error(
+      "[Work Order] Failed to set Attachment_Sync:",
+      error?.response?.data || error.message,
+    );
+
+    return false;
+  }
+}
+
+async function createWorkOrder({ tickets, technicianEmail }) {
+  const workOrderConfig = config.zoho.workOrder;
+
+  if (!workOrderConfig.formLinkName) {
+    const error = new Error(
+      "Zoho Work Order form link name is not configured.",
+    );
 
     error.statusCode = 500;
 
     throw error;
   }
 
-  const payload =
-    buildCreatorPayload(
-      tickets,
-      technicianEmail
-    );
+  const payload = buildCreatorPayload(tickets, technicianEmail);
 
   console.log(
-    '[Work Order] Payload sent to Zoho:',
-    JSON.stringify(
-      payload,
-      null,
-      2
-    )
+    "[Work Order] Payload sent to Zoho:",
+    JSON.stringify(payload, null, 2),
   );
 
-    const zohoResponse =
-    await creatorRequest(
-      'post',
-      `/form/${workOrderConfig.formLinkName}`,
-      {
-        data: payload,
-      }
-    );
-
-  validateZohoResponse(
-    zohoResponse
+  const zohoResponse = await creatorRequest(
+    "post",
+    `/form/${workOrderConfig.formLinkName}`,
+    {
+      data: payload,
+    },
   );
 
-  const recordId =
-    extractRecordId(
-      zohoResponse
-    );
+  validateZohoResponse(zohoResponse);
 
-  const attachmentCount =
-    tickets.reduce(
-      (total, ticket) =>
-        total +
-        (
-          ticket.attachments ||
-          []
-        ).length,
-      0
-    );
+  const recordId = extractRecordId(zohoResponse);
 
-  let attachmentUploadStatus =
-    'No attachments supplied.';
+  const attachmentCount = tickets.reduce(
+    (total, ticket) => total + (ticket.attachments || []).length,
+    0,
+  );
+
+  let attachmentUploadStatus = "No attachments supplied.";
   let attachmentUploadResult = {
     uploaded: 0,
     failed: 0,
     errors: [],
+    failedFileNames: [],
   };
+  let attachmentSyncUpdated = false;
 
   if (attachmentCount > 0) {
-    attachmentUploadResult =
-      await uploadTicketAttachments(
-        {
-          recordId,
-          tickets,
-        }
-      );
+    attachmentUploadResult = await uploadTicketAttachments({
+      recordId,
+      tickets,
+    });
 
     attachmentUploadStatus =
-      attachmentUploadResult.failed ===
-      0
+      attachmentUploadResult.failed === 0
         ? `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded successfully.`
-        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded; ${attachmentUploadResult.failed} failed. The Work Order itself was still submitted successfully.`;
+        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded. Failed to upload: ${attachmentUploadResult.failedFileNames.join(", ")}.`;
 
-    if (
-      attachmentUploadResult.errors
-        .length > 0
-    ) {
+    if (attachmentUploadResult.errors.length > 0) {
       console.error(
-        '[Work Order] Attachment upload errors:',
-        attachmentUploadResult.errors
+        "[Work Order] Attachment upload errors:",
+        attachmentUploadResult.errors,
       );
     }
+
+    // Per instructions: always mark synced once attempted, even if
+    // some individual images failed - failures are UI-only. A
+    // short delay is added before this specific call, giving Zoho
+    // time to fully settle/index the just-uploaded images before
+    // the Attachment_Sync update fires - the workflow attached to
+    // this field wasn't firing reliably without it.
+    await wait(2000);
+
+    attachmentSyncUpdated = await markAttachmentSyncComplete({
+      recordId,
+      reportLinkName: config.zoho.reports.workOrder,
+    });
   }
 
   return {
@@ -715,6 +502,8 @@ async function createWorkOrder({
     attachmentUploadStatus,
 
     attachmentUploadResult,
+
+    attachmentSyncUpdated,
   };
 }
 

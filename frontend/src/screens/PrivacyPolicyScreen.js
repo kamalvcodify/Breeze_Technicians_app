@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import TechnicianLayout from '../components/TechnicianLayout';
 import AppPopup from '../components/AppPopup';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import styles from '../styles/PrivacyPolicyScreen.styles';
 
@@ -26,6 +27,13 @@ const CONTACT_PHONE = '917-426-6188';
  * is gone entirely; that link now lives inside the Contact Us (09)
  * row instead, and tapping it shows a "you're leaving the app"
  * confirmation (via AppPopup) before opening the browser.
+ *
+ * FIX: isAdmin now read from useAuth() and passed to
+ * TechnicianLayout - previously this was omitted entirely, so the
+ * header always defaulted to the technician nav (Home/My Assigned
+ * Work Orders/Start Shift) regardless of who was actually logged
+ * in, even for an admin. Same fix already applied to
+ * ReportsScreen.js/ReportListScreen.js/ReportDetailScreen.js.
  * ----------------------------------------------------------------
  */
 const SECTIONS = [
@@ -166,6 +174,7 @@ function SectionBody({ section }) {
 }
 
 export default function PrivacyPolicyScreen({ navigation }) {
+  const { isAdmin } = useAuth();
   const [expandedIndex, setExpandedIndex] = useState(0);
   const [leavingAppVisible, setLeavingAppVisible] = useState(false);
 
@@ -183,7 +192,7 @@ export default function PrivacyPolicyScreen({ navigation }) {
   };
 
   return (
-    <TechnicianLayout navigation={navigation} activeRoute="Privacy">
+    <TechnicianLayout navigation={navigation} activeRoute="Privacy" isAdmin={isAdmin}>
       <View style={styles.headerBar}>
         <View style={styles.headerBarInner}>
           <View style={styles.headerTextGroup}>

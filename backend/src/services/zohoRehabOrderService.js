@@ -64,15 +64,6 @@ function formatCreatorTime(value) {
   return `${hour}:${minute} ${meridiem}`;
 }
 
-/**
- * addEntryFields
- * ----------------------------------------------------------------
- * NEW: pre-creates one subform row PER attachment (sequence number
- * only, image_sequence field) - same pattern proven working on
- * Work Order. The actual image bytes get uploaded separately AFTER
- * the record exists - see uploadEntryAttachments() below.
- * ----------------------------------------------------------------
- */
 function addEntryFields(data, order, fieldConfig, enabled, technicianEmail) {
   if (enabled && fieldConfig.enabled) {
     setField(data, fieldConfig.enabled, true);
@@ -208,14 +199,6 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * fetchRecordWithRetry
- * ----------------------------------------------------------------
- * Same retry-with-delay pattern proven necessary on Work Order -
- * Zoho's subform data isn't always immediately queryable right
- * after Add Record succeeds.
- * ----------------------------------------------------------------
- */
 async function fetchRecordWithRetry({
   reportLinkName,
   recordId,
@@ -273,12 +256,9 @@ async function fetchRecordWithRetry({
 /**
  * uploadEntryAttachments
  * ----------------------------------------------------------------
- * Mirrors Work Order's uploadTicketAttachments() exactly. Uses
- * config.zoho.reports.rehabOrder ("Admin_All_Rehab_Orders1") for
- * BOTH the re-fetch and the upload call - confirmed via the Work
- * Order fix that the "Admin_" report is the one with full column
- * visibility (subform sequence fields included), unlike the
- * non-admin report used elsewhere.
+ * NEW: now also tracks failedFileNames - used to build a specific
+ * "failed to upload: X.jpg, Y.jpg" message instead of just a
+ * count.
  * ----------------------------------------------------------------
  */
 async function uploadEntryAttachments({ recordId, orders }) {
@@ -305,6 +285,7 @@ async function uploadEntryAttachments({ recordId, orders }) {
       uploaded: 0,
       failed: 0,
       errors: [],
+      failedFileNames: [],
     };
   }
 
@@ -323,27 +304,37 @@ async function uploadEntryAttachments({ recordId, orders }) {
       attachmentsSubformKeys,
     });
   } catch (error) {
-    const totalAttachments = entriesWithAttachments.reduce(
-      (total, { order }) => total + order.attachments.length,
-      0,
+    const failedFileNames = entriesWithAttachments.flatMap(({ order }) =>
+      order.attachments.map(
+        (attachment, index) =>
+          attachment.originalName || `photo-${index + 1}.jpg`,
+      ),
     );
 
     return {
       uploaded: 0,
-      failed: totalAttachments,
+      failed: failedFileNames.length,
       errors: [
         `Could not re-fetch the created record to upload images: ${error.message}`,
       ],
+      failedFileNames,
     };
   }
 
   let uploaded = 0;
   const errors = [];
+  const failedFileNames = [];
 
   for (const { order, fieldConfig } of entriesWithAttachments) {
     const subformRows = fetchedRecord?.[fieldConfig.attachmentsSubform];
 
     if (!Array.isArray(subformRows)) {
+      order.attachments.forEach((attachment, index) => {
+        failedFileNames.push(
+          attachment.originalName || `photo-${index + 1}.jpg`,
+        );
+      });
+
       errors.push(
         `No subform rows found for ${fieldConfig.attachmentsSubform} on record ${recordId}.`,
       );
@@ -355,14 +346,19 @@ async function uploadEntryAttachments({ recordId, orders }) {
 
       const expectedSequence = String(index + 1);
 
+      const fileName =
+        attachment.originalName || `photo-${expectedSequence}.jpg`;
+
       const matchingRow = subformRows.find(
         (row) =>
           String(row[fieldConfig.attachmentSequenceField]) === expectedSequence,
       );
 
       if (!matchingRow) {
+        failedFileNames.push(fileName);
+
         errors.push(
-          `Could not find a matching subform row for sequence ${expectedSequence} in ${fieldConfig.attachmentsSubform}.`,
+          `Could not find a matching subform row for sequence ${expectedSequence} (${fileName}) in ${fieldConfig.attachmentsSubform}.`,
         );
         continue;
       }
@@ -371,7 +367,7 @@ async function uploadEntryAttachments({ recordId, orders }) {
         const formData = new FormData();
 
         formData.append("file", attachment.buffer, {
-          filename: attachment.originalName || `photo-${expectedSequence}.jpg`,
+          filename: fileName,
           contentType: attachment.mimeType || "image/jpeg",
         });
 
@@ -382,8 +378,10 @@ async function uploadEntryAttachments({ recordId, orders }) {
 
         uploaded += 1;
       } catch (error) {
+        failedFileNames.push(fileName);
+
         errors.push(
-          `Failed to upload image ${index + 1} for ${fieldConfig.attachmentsSubform}: ${error?.response?.data?.message || error.message}`,
+          `Failed to upload ${fileName} for ${fieldConfig.attachmentsSubform}: ${error?.response?.data?.message || error.message}`,
         );
       }
     }
@@ -391,9 +389,40 @@ async function uploadEntryAttachments({ recordId, orders }) {
 
   return {
     uploaded,
-    failed: errors.length,
+    failed: failedFileNames.length,
     errors,
+    failedFileNames,
   };
+}
+
+/**
+ * markAttachmentSyncComplete
+ * ----------------------------------------------------------------
+ * Same rules as zohoWorkOrderService.js's version - one field per
+ * whole record (not per entry). Always set true once ANY entry had
+ * attachments, regardless of individual upload success/failure.
+ * Never sent when the record has zero attachments anywhere.
+ * ----------------------------------------------------------------
+ */
+async function markAttachmentSyncComplete({ recordId, reportLinkName }) {
+  try {
+    await creatorRequest("patch", `/report/${reportLinkName}/${recordId}`, {
+      data: {
+        data: {
+          [config.zoho.attachmentSyncField]: true,
+        },
+      },
+    });
+
+    return true;
+  } catch (error) {
+    console.error(
+      "[Rehab Order] Failed to set Attachment_Sync:",
+      error?.response?.data || error.message,
+    );
+
+    return false;
+  }
 }
 
 async function createRehabOrder({ orders, technicianEmail }) {
@@ -438,7 +467,9 @@ async function createRehabOrder({ orders, technicianEmail }) {
     uploaded: 0,
     failed: 0,
     errors: [],
+    failedFileNames: [],
   };
+  let attachmentSyncUpdated = false;
 
   if (attachmentCount > 0) {
     attachmentUploadResult = await uploadEntryAttachments({
@@ -449,7 +480,7 @@ async function createRehabOrder({ orders, technicianEmail }) {
     attachmentUploadStatus =
       attachmentUploadResult.failed === 0
         ? `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded successfully.`
-        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded; ${attachmentUploadResult.failed} failed. The Rehab Order itself was still submitted successfully.`;
+        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded. Failed to upload: ${attachmentUploadResult.failedFileNames.join(", ")}.`;
 
     if (attachmentUploadResult.errors.length > 0) {
       console.error(
@@ -457,6 +488,17 @@ async function createRehabOrder({ orders, technicianEmail }) {
         attachmentUploadResult.errors,
       );
     }
+
+    // Same 8-second delay as Work Order/Move Out - gives Zoho time
+    // to settle the just-uploaded images before the Attachment_Sync
+    // update fires, which the attached workflow needs to see
+    // reliably.
+    await wait(2000);
+
+    attachmentSyncUpdated = await markAttachmentSyncComplete({
+      recordId,
+      reportLinkName: config.zoho.reports.rehabOrder,
+    });
   }
 
   return {
@@ -467,6 +509,8 @@ async function createRehabOrder({ orders, technicianEmail }) {
     attachmentUploadStatus,
 
     attachmentUploadResult,
+
+    attachmentSyncUpdated,
   };
 }
 

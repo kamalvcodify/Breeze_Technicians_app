@@ -172,6 +172,25 @@ const config = {
       termsAccepted: required("ZOHO_FIELD_TERM_CONDITIONS", "Term_Conditions"), // ← ADD THIS LINE
     },
 
+    autoEndShift: {
+      cronExpression: required("AUTO_END_SHIFT_CRON", "0 17 * * *"),
+    },
+
+    /*
+     * Shared Attachment_Sync checkbox field, same API name across
+     * every form that has image upload built (Work Order, Rehab
+     * Order, Move Out). One field per whole record, set true once
+     * the upload phase finishes IF the record had at least one
+     * attachment anywhere - never sent at all for a record with
+     * zero attachments, since Zoho has a workflow tied to this
+     * field. See markAttachmentSyncComplete() in each form's Zoho
+     * service.
+     */
+    attachmentSyncField: required(
+      "ZOHO_ATTACHMENT_SYNC_FIELD",
+      "Attachment_Sync",
+    ),
+
     /*
      * Zoho Creator Work Order configuration
      */

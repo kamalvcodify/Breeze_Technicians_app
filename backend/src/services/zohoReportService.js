@@ -1,42 +1,35 @@
+const axios = require("axios");
+
 const config = require("../config/env");
 
 const { creatorRequest } = require("./zohoCreatorService");
+const { getAccessToken } = require("./zohoAuthService");
 
 /**
  * services/zohoReportService.js
  * ----------------------------------------------------------------
- * ONE generic report-fetching engine for all 5 reports, instead of
- * 5 separate service files. Reuses the exact field-name mappings
- * already built for each form's SUBMISSION (ticketFields,
- * rehabTicketFields, checkInOut.fields, moveOut.fields,
- * rentReadyChecklist.fields/.checklist in env.js) - nothing is
- * re-typed here.
+ * ONE generic report-fetching engine for all 5 reports.
  *
- * FIX: Zoho Creator's v2.1 API returns Lookup fields (Property,
- * confirmed from a real record dump) as a nested object, e.g.:
- *   "Property": { "ID": "...", "product_name": "...",
- *                 "zc_display_value": "Orchard Building" }
- * or as an empty object {} when the field is unset. Every place
- * that read record[fieldName] directly and passed it straight to
- * String(...) or used it in a || fallback was producing the
- * literal text "[object Object]" for any Lookup field - this is
- * exactly what showed up as Property's value in the Reports detail
- * view. extractDisplayValue() below is now used everywhere a
- * single field's value is read, both in the detail-view field
- * extraction AND in the list-view summary columns (Property/Unit
- * on Rehab Order, Move Out, and Rent Ready Checklist use the same
- * raw-property-read pattern and were equally affected).
+ * IMAGE HANDLING (FIX): earlier version tried to fetch the raw
+ * string in each subform row's Image field directly - that string
+ * turned out NOT to be a working download path (404s). Zoho's
+ * actual documented Download File from Subform API instead
+ * CONSTRUCTS the download URL from pieces we already have:
+ *   /creator/v2.1/data/<owner>/<app>/report/<reportLinkName>/
+ *     <recordId>/<subformName>.<fieldName>/<subformRecordId>/download
+ * This is the exact same URL SHAPE already confirmed working for
+ * the Upload File API (just swap "upload" for "download", GET
+ * instead of POST) - see zohoCreatorService.js's creatorUploadFile.
  *
- * Attachments/images are intentionally NOT read/returned anywhere
- * in this file yet - per instructions, that's a deliberate next
- * step, not part of this fix.
- *
- * Filtering: each report is filtered to the requesting
- * technician's own records via a Zoho Creator "criteria" query on
- * one email field. For Work Order this is the shared top-level
- * Email field; for Rehab Order (which has 3 separate email fields,
- * one per entry) this uses Entry 1's Email field only, since all
- * three are populated with the same value at submission time.
+ * So extractAttachmentImageRefs() below no longer returns raw
+ * strings - it returns structured {reportLinkName, recordId,
+ * subformName, fieldName, subformRecordId} objects, one per
+ * subform row that actually has a non-empty image value. The
+ * frontend sends these exact fields to GET /api/reports/image,
+ * which reconstructs the same download URL server-side and
+ * fetches the bytes with the OAuth token (see fetchImageAsDataUri
+ * below), returning a base64 data URI - no client ever needs a
+ * Zoho token or touches Zoho directly.
  * ----------------------------------------------------------------
  */
 
@@ -67,13 +60,12 @@ const FIELD_LABELS = {
   dateTime: "Date/Time",
 };
 
-// Keys that exist in a field-mapping object but should never be
-// shown as a display row (internal bookkeeping / attachments).
 const NON_DISPLAY_KEYS = [
   "enabled",
   "attachmentField",
   "attachmentsSubform",
   "topLevelAttachmentField",
+  "attachmentSequenceField",
   "qrScan",
 ];
 
@@ -81,17 +73,6 @@ function labelFor(internalKey) {
   return FIELD_LABELS[internalKey] || internalKey;
 }
 
-/**
- * Normalizes ANY raw Zoho field value down to a plain display
- * string - handles the 3 shapes we've actually seen in real
- * responses:
- *   - a plain string/number ("Toledo", "Follow up needed", etc.)
- *   - a populated Lookup object ({ ID, product_name,
- *     zc_display_value }) -> use zc_display_value
- *   - an unset Lookup field, returned as an empty object {} -> ""
- * Arrays (e.g. the Attachments subform) are deliberately NOT
- * unwrapped here - this function is only for single-value fields.
- */
 function extractDisplayValue(value) {
   if (value === undefined || value === null || value === "") {
     return "";
@@ -106,11 +87,42 @@ function extractDisplayValue(value) {
       return String(value.zc_display_value);
     }
 
-    // Empty Lookup object (field left unset) - no real value.
     return "";
   }
 
   return String(value);
+}
+
+/**
+ * extractAttachmentImageRefs
+ * ----------------------------------------------------------------
+ * NEW SHAPE: returns structured references, NOT raw path strings -
+ * see the file-level comment above for why. Only subform rows with
+ * a genuinely non-empty image value are included.
+ * ----------------------------------------------------------------
+ */
+function extractAttachmentImageRefs(record, fieldConfig, reportLinkName) {
+  if (!fieldConfig.attachmentsSubform || !fieldConfig.attachmentField) {
+    return [];
+  }
+
+  const subformRows = record[fieldConfig.attachmentsSubform];
+
+  if (!Array.isArray(subformRows)) {
+    return [];
+  }
+
+  const recordId = record.ID || record.id;
+
+  return subformRows
+    .filter((row) => !!row[fieldConfig.attachmentField])
+    .map((row) => ({
+      reportLinkName,
+      recordId,
+      subformName: fieldConfig.attachmentsSubform,
+      fieldName: fieldConfig.attachmentField,
+      subformRecordId: row.ID,
+    }));
 }
 
 function extractGroupFields(record, fieldMap) {
@@ -148,12 +160,10 @@ function isGroupPresent(record, fieldMap) {
     return enabledValue === true || enabledValue === "true";
   }
 
-  // Entries with no "enabled" flag (Ticket 1 / Rehab entry 1, or
-  // any single-entry form) are always considered present.
   return true;
 }
 
-function buildGroups(record, groupDefs) {
+function buildGroups(record, groupDefs, reportLinkName) {
   const groups = [];
 
   groupDefs.forEach((groupDef) => {
@@ -164,6 +174,7 @@ function buildGroups(record, groupDefs) {
     groups.push({
       title: groupDef.title,
       fields: extractGroupFields(record, groupDef.fields),
+      images: extractAttachmentImageRefs(record, groupDef.fields, reportLinkName),
     });
   });
 
@@ -171,18 +182,23 @@ function buildGroups(record, groupDefs) {
 }
 
 /* ------------------------------------------------------------------
- * Per-report row builders
+ * Per-report row builders - all now take reportLinkName as a second
+ * argument, needed to build correct image download references.
  * ------------------------------------------------------------------ */
 
-function buildWorkOrderRow(record) {
+function buildWorkOrderRow(record, reportLinkName) {
   const workOrderConfig = config.zoho.workOrder;
   const ticket1 = workOrderConfig.tickets.ticket1;
 
-  const groups = buildGroups(record, [
-    { title: "Ticket 1", fields: ticket1 },
-    { title: "Ticket 2", fields: workOrderConfig.tickets.ticket2 },
-    { title: "Ticket 3", fields: workOrderConfig.tickets.ticket3 },
-  ]);
+  const groups = buildGroups(
+    record,
+    [
+      { title: "Ticket 1", fields: ticket1 },
+      { title: "Ticket 2", fields: workOrderConfig.tickets.ticket2 },
+      { title: "Ticket 3", fields: workOrderConfig.tickets.ticket3 },
+    ],
+    reportLinkName
+  );
 
   return {
     id: record.ID || record.id,
@@ -195,15 +211,19 @@ function buildWorkOrderRow(record) {
   };
 }
 
-function buildRehabOrderRow(record) {
+function buildRehabOrderRow(record, reportLinkName) {
   const rehabConfig = config.zoho.rehabOrder;
   const entry1 = rehabConfig.entries.entry1;
 
-  const groups = buildGroups(record, [
-    { title: "Rehab Order", fields: entry1 },
-    { title: "Rehab2", fields: rehabConfig.entries.entry2 },
-    { title: "Rehab3", fields: rehabConfig.entries.entry3 },
-  ]);
+  const groups = buildGroups(
+    record,
+    [
+      { title: "Rehab Order", fields: entry1 },
+      { title: "Rehab2", fields: rehabConfig.entries.entry2 },
+      { title: "Rehab3", fields: rehabConfig.entries.entry3 },
+    ],
+    reportLinkName
+  );
 
   const propertyUnit = [
     extractDisplayValue(record[entry1.property]),
@@ -223,11 +243,15 @@ function buildRehabOrderRow(record) {
   };
 }
 
-function buildCheckInOutRow(record) {
+function buildCheckInOutRow(record, reportLinkName) {
   const fields = config.zoho.checkInOut.fields;
 
   const groups = [
-    { title: "Entry", fields: extractGroupFields(record, fields) },
+    {
+      title: "Entry",
+      fields: extractGroupFields(record, fields),
+      images: extractAttachmentImageRefs(record, fields, reportLinkName),
+    },
   ];
 
   return {
@@ -241,11 +265,15 @@ function buildCheckInOutRow(record) {
   };
 }
 
-function buildMoveOutRow(record) {
+function buildMoveOutRow(record, reportLinkName) {
   const fields = config.zoho.moveOut.fields;
 
   const groups = [
-    { title: "Move Out", fields: extractGroupFields(record, fields) },
+    {
+      title: "Move Out",
+      fields: extractGroupFields(record, fields),
+      images: extractAttachmentImageRefs(record, fields, reportLinkName),
+    },
   ];
 
   const propertyUnit = [
@@ -266,18 +294,18 @@ function buildMoveOutRow(record) {
   };
 }
 
-function buildRentReadyChecklistRow(record) {
+function buildRentReadyChecklistRow(record, reportLinkName) {
   const rentReadyConfig = config.zoho.rentReadyChecklist;
   const fields = rentReadyConfig.fields;
 
   const groups = [
-    { title: "Checklist Info", fields: extractGroupFields(record, fields) },
+    {
+      title: "Checklist Info",
+      fields: extractGroupFields(record, fields),
+      images: extractAttachmentImageRefs(record, fields, reportLinkName),
+    },
   ];
 
-  // Checklist items are returned as {shortKey: boolean} - the
-  // frontend already has display labels for these short keys (see
-  // RentReadyChecklistFormSection.js's CHECKLIST_SECTIONS), so
-  // labels are not duplicated here.
   const checklist = {};
 
   Object.keys(rentReadyConfig.checklist).forEach((shortKey) => {
@@ -306,7 +334,7 @@ function buildRentReadyChecklistRow(record) {
 }
 
 /* ------------------------------------------------------------------
- * Report registry - one entry per report key
+ * Report registry
  * ------------------------------------------------------------------ */
 
 const REPORT_DEFINITIONS = {
@@ -318,9 +346,6 @@ const REPORT_DEFINITIONS = {
   },
   rehabOrder: {
     reportLinkName: () => config.zoho.reports.rehabOrder,
-    // Rehab Order has 3 separate email fields (one per entry), all
-    // populated with the same value at submission time - filtering
-    // on entry 1's is sufficient.
     emailField: () => config.zoho.rehabOrder.entries.entry1.email,
     buildRow: buildRehabOrderRow,
     columns: ["Property/Unit", "Status", "Date"],
@@ -345,16 +370,7 @@ const REPORT_DEFINITIONS = {
   },
 };
 
-/**
- * Fetches and normalizes one report's records for the given
- * technician's email.
- *
- * ADMIN MODE (future): once "show everyone's records" is needed,
- * this is the one place to change - skip building the `criteria`
- * param (or build a different one) based on a flag passed in from
- * the controller, rather than always filtering by email.
- */
-async function fetchReport(reportKey, technicianEmail) {
+async function fetchReport(reportKey, technicianEmail, isAdmin = false) {
   const reportDef = REPORT_DEFINITIONS[reportKey];
 
   if (!reportDef) {
@@ -364,36 +380,40 @@ async function fetchReport(reportKey, technicianEmail) {
   }
 
   const reportLinkName = reportDef.reportLinkName();
-  const emailField = reportDef.emailField();
 
-  if (!reportLinkName || !emailField) {
+  if (!reportLinkName) {
     const error = new Error(
-      `Report "${reportKey}" is missing its report link name or email field configuration.`,
+      `Report "${reportKey}" is missing its report link name configuration.`,
     );
     error.statusCode = 500;
     throw error;
   }
 
-  const criteria = `(${emailField} == "${technicianEmail}")`;
+  const params = {};
+
+  if (!isAdmin) {
+    const emailField = reportDef.emailField();
+
+    if (!emailField) {
+      const error = new Error(
+        `Report "${reportKey}" is missing its email field configuration.`,
+      );
+      error.statusCode = 500;
+      throw error;
+    }
+
+    params.criteria = `(${emailField} == "${technicianEmail}")`;
+  }
 
   let records = [];
 
   try {
     const response = await creatorRequest("get", `/report/${reportLinkName}`, {
-      params: { criteria },
+      params,
     });
 
     records = Array.isArray(response?.data) ? response.data : [];
   } catch (error) {
-    /*
-     * Zoho Creator's report API has a well-known quirk: when a
-     * criteria query matches ZERO records, it responds with HTTP
-     * 400 and code 9280 ("No records found matching the given
-     * criteria") instead of a normal 200 with an empty array. That
-     * is a legitimate empty result, not a real error - without this
-     * check, every technician with zero records for a given report
-     * would see a crash instead of an empty list.
-     */
     const zohoErrorCode = error?.response?.data?.code;
 
     if (zohoErrorCode === 9280) {
@@ -405,11 +425,58 @@ async function fetchReport(reportKey, technicianEmail) {
 
   return {
     columns: reportDef.columns,
-    rows: records.map(reportDef.buildRow),
+    rows: records.map((record) => reportDef.buildRow(record, reportLinkName)),
   };
+}
+
+/**
+ * fetchImageAsDataUri
+ * ----------------------------------------------------------------
+ * FIX: now CONSTRUCTS the download URL from the structured
+ * reference (reportLinkName/recordId/subformName/fieldName/
+ * subformRecordId) using Zoho's documented Download File from
+ * Subform API shape - exactly the same shape already confirmed
+ * working for the Upload File API, just GET + "/download" instead
+ * of POST + "/upload":
+ *   /creator/v2.1/data/<owner>/<app>/report/<reportLinkName>/
+ *     <recordId>/<subformName>.<fieldName>/<subformRecordId>/download
+ * ----------------------------------------------------------------
+ */
+async function fetchImageAsDataUri({
+  reportLinkName,
+  recordId,
+  subformName,
+  fieldName,
+  subformRecordId,
+}) {
+  if (!reportLinkName || !recordId || !subformName || !fieldName || !subformRecordId) {
+    const error = new Error("Missing required image reference parameters.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const accessToken = await getAccessToken();
+
+  const url =
+    `${config.zoho.apiDomain}/creator/v2.1/data/${config.zoho.ownerName}/` +
+    `${config.zoho.appLinkName}/report/${reportLinkName}/${recordId}/` +
+    `${subformName}.${fieldName}/${subformRecordId}/download`;
+
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+    },
+    responseType: "arraybuffer",
+  });
+
+  const contentType = response.headers["content-type"] || "image/jpeg";
+  const base64 = Buffer.from(response.data).toString("base64");
+
+  return `data:${contentType};base64,${base64}`;
 }
 
 module.exports = {
   fetchReport,
+  fetchImageAsDataUri,
   REPORT_DEFINITIONS,
 };
