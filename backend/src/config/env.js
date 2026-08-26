@@ -698,6 +698,91 @@ const config = {
         ),
       },
     },
+
+    /*
+     * Zoho CRM Task Tracking (per-Work-Order geofenced time
+     * tracking, from the Technician Shift screen) - a SEPARATE
+     * module from the header bar's Login/Logout shift toggle
+     * (services/zohoCrmShiftService.js). One record per technician
+     * + Work Order (matched by Email + Reference, not by calendar
+     * day - a Work Order can span multiple days). A subform,
+     * Task_Tracking_Sessions, holds one row per start/stop segment.
+     * All fields in this module are real Zoho DateTime types, not
+     * plain Text/Date - see services/zohoTaskTrackingService.js.
+     */
+    taskTracking: {
+      module: required("ZOHO_TASK_TRACKING_MODULE", "Task_Tracking"),
+
+      fields: {
+        name: required("ZOHO_TASK_TRACKING_FIELD_NAME", "Name"),
+        email: required("ZOHO_TASK_TRACKING_FIELD_EMAIL", "Email"),
+        jobType: required("ZOHO_TASK_TRACKING_FIELD_JOB_TYPE", "Job_Type"),
+        reference: required("ZOHO_TASK_TRACKING_FIELD_REFERENCE", "Reference"),
+        firstStartTime: required(
+          "ZOHO_TASK_TRACKING_FIELD_FIRST_START_TIME",
+          "First_Start_Time",
+        ),
+        lastEndTime: required(
+          "ZOHO_TASK_TRACKING_FIELD_LAST_END_TIME",
+          "Last_End_Time",
+        ),
+        totalTimeWorked: required(
+          "ZOHO_TASK_TRACKING_FIELD_TOTAL_TIME_WORKED",
+          "Total_Time_Worked",
+        ),
+        sessionCount: required(
+          "ZOHO_TASK_TRACKING_FIELD_SESSION_COUNT",
+          "Session_Count",
+        ),
+
+        /*
+         * NEW - event-log fields, per the client's provided
+         * implementation spec. Location_Logs was redesigned from an
+         * aggregated per-Work-Order record (firstStartTime,
+         * totalTimeWorked, etc above - kept but no longer written
+         * to) to a true event log: every Login, Logout, Break
+         * Started, Break Ended, and Interval Ping is its own fresh
+         * row using these fields. See
+         * services/zohoTaskTrackingService.js's logEvent()/
+         * logPingBatch().
+         */
+        logType: required("ZOHO_TASK_TRACKING_FIELD_LOG_TYPE", "Log_Type"),
+        deviceTimestamp: required(
+          "ZOHO_TASK_TRACKING_FIELD_DEVICE_TIMESTAMP",
+          "Device_Timestamp",
+        ),
+        latitude: required("ZOHO_TASK_TRACKING_FIELD_LATITUDE", "Latitude"),
+        longitude: required("ZOHO_TASK_TRACKING_FIELD_LONGITUDE", "Longitude"),
+        relatedWorkOrder: required(
+          "ZOHO_TASK_TRACKING_FIELD_RELATED_WORK_ORDER",
+          "Related_Work_Order",
+        ),
+        technician: required(
+          "ZOHO_TASK_TRACKING_FIELD_TECHNICIAN",
+          "Technician",
+        ),
+      },
+
+      subformName: required(
+        "ZOHO_TASK_TRACKING_SUBFORM_NAME",
+        "Task_Tracking_Sessions",
+      ),
+
+      sessionFields: {
+        startTime: required(
+          "ZOHO_TASK_TRACKING_SESSION_FIELD_START_TIME",
+          "Start_Time",
+        ),
+        endTime: required(
+          "ZOHO_TASK_TRACKING_SESSION_FIELD_END_TIME",
+          "End_Time",
+        ),
+        duration: required(
+          "ZOHO_TASK_TRACKING_SESSION_FIELD_DURATION",
+          "Duration",
+        ),
+      },
+    },
   },
 
   /*

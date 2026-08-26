@@ -1,4 +1,4 @@
-const trackingService = require('../services/trackingService');
+const trackingService = require("../services/trackingService");
 
 /**
  * Returns Work Orders assigned to the currently
@@ -14,45 +14,36 @@ const trackingService = require('../services/trackingService');
  */
 const getMyAssignedWorkOrders = async (req, res) => {
   try {
-    const technicianEmail =
-      req.user?.email;
+    const technicianEmail = req.user?.email;
 
     if (!technicianEmail) {
       return res.status(401).json({
         success: false,
-        message:
-          'The logged-in technician email could not be identified.',
+        message: "The logged-in technician email could not be identified.",
         data: [],
       });
     }
 
     const workOrders =
-      await trackingService
-        .getAssignedWorkOrdersForTechnician(
-          technicianEmail
-        );
+      await trackingService.getAssignedWorkOrdersForTechnician(technicianEmail);
 
     return res.status(200).json({
       success: true,
-      message:
-        'Assigned Work Orders loaded successfully.',
+      message: "Assigned Work Orders loaded successfully.",
       count: workOrders.length,
       data: workOrders,
     });
   } catch (error) {
     console.error(
-      '[Tracking Controller] Failed to load assigned Work Orders:',
-      error?.message
+      "[Tracking Controller] Failed to load assigned Work Orders:",
+      error?.message,
     );
 
-    const statusCode =
-      Number(error?.statusCode) || 500;
+    const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message:
-        error?.message ||
-        'Unable to load assigned Work Orders.',
+      message: error?.message || "Unable to load assigned Work Orders.",
       data: [],
     });
   }
@@ -71,33 +62,44 @@ const startSession = async (req, res) => {
     if (!technicianEmail) {
       return res.status(401).json({
         success: false,
-        message: 'The logged-in technician email could not be identified.',
+        message: "The logged-in technician email could not be identified.",
         data: null,
       });
     }
 
-    const { workOrderId, latitude, longitude } = req.body || {};
+    const {
+      workOrderId,
+      workOrderReference,
+      technicianName,
+      latitude,
+      longitude,
+    } = req.body || {};
 
     const session = await trackingService.startTrackingSession({
       technicianEmail,
+      technicianName,
       workOrderId,
+      workOrderReference,
       latitude,
       longitude,
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Shift started.',
+      message: "Shift started.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to start shift:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to start shift:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not start the shift.',
+      message: error?.message || "Could not start the shift.",
       data: null,
     });
   }
@@ -118,22 +120,66 @@ const recordLocation = async (req, res) => {
       latitude,
       longitude,
       accuracy,
-      devicePlatform: req.headers['x-device-platform'] || null,
+      devicePlatform: req.headers["x-device-platform"] || null,
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Location recorded.',
+      message: "Location recorded.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to record location:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to record location:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not sync your location.',
+      message: error?.message || "Could not sync your location.",
+      data: null,
+    });
+  }
+};
+
+/**
+ * Records a BATCH of buffered Interval Ping location points at
+ * once - the efficiency redesign confirmed with the client. See
+ * utils/pingBuffer.js (frontend) and
+ * trackingService.recordTrackingLocationBatch (this becomes ONE
+ * bulk insert to Zoho CRM, not one call per ping).
+ *
+ * POST /api/tracking/location-batch
+ * Body: { sessionId, pings: [{ latitude, longitude, deviceTimestamp }, ...] }
+ */
+const recordLocationBatch = async (req, res) => {
+  try {
+    const { sessionId, pings } = req.body || {};
+
+    const result = await trackingService.recordTrackingLocationBatch({
+      sessionId,
+      pings,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Synced ${result.successCount || 0} of ${result.totalCount || 0} location point(s).`,
+      data: result,
+    });
+  } catch (error) {
+    console.error(
+      "[Tracking Controller] Failed to record location batch:",
+      error?.message,
+    );
+
+    const statusCode = Number(error?.statusCode) || 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message:
+        error?.message || "Could not sync your buffered location points.",
       data: null,
     });
   }
@@ -153,17 +199,20 @@ const startBreak = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Break started.',
+      message: "Break started.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to start break:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to start break:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not start the break.',
+      message: error?.message || "Could not start the break.",
       data: null,
     });
   }
@@ -187,17 +236,20 @@ const continueSession = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Shift resumed.',
+      message: "Shift resumed.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to continue shift:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to continue shift:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not resume the shift.',
+      message: error?.message || "Could not resume the shift.",
       data: null,
     });
   }
@@ -221,17 +273,20 @@ const stopSession = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Shift ended.',
+      message: "Shift ended.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to stop shift:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to stop shift:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not end the shift.',
+      message: error?.message || "Could not end the shift.",
       data: null,
     });
   }
@@ -251,7 +306,7 @@ const getSessionStatus = async (req, res) => {
     if (!technicianEmail) {
       return res.status(401).json({
         success: false,
-        message: 'The logged-in technician email could not be identified.',
+        message: "The logged-in technician email could not be identified.",
         data: null,
       });
     }
@@ -263,17 +318,22 @@ const getSessionStatus = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: session ? 'Active session found.' : 'No active session for this Work Order.',
+      message: session
+        ? "Active session found."
+        : "No active session for this Work Order.",
       data: session,
     });
   } catch (error) {
-    console.error('[Tracking Controller] Failed to read session status:', error?.message);
+    console.error(
+      "[Tracking Controller] Failed to read session status:",
+      error?.message,
+    );
 
     const statusCode = Number(error?.statusCode) || 500;
 
     return res.status(statusCode).json({
       success: false,
-      message: error?.message || 'Could not load the current shift status.',
+      message: error?.message || "Could not load the current shift status.",
       data: null,
     });
   }
@@ -283,6 +343,7 @@ module.exports = {
   getMyAssignedWorkOrders,
   startSession,
   recordLocation,
+  recordLocationBatch,
   startBreak,
   continueSession,
   stopSession,

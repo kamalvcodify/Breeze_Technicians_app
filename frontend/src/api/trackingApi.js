@@ -134,11 +134,25 @@ function buildTrackingErrorResult(error, fallbackMessage) {
  * Backend is expected to validate the technician's assignment and
  * distance server-side as well - the frontend check is a first line
  * of defense / instant feedback, not the source of truth.
+ *
+ * NEW: technicianName is now sent explicitly - the JWT only ever
+ * carries email/isAdmin, never the technician's real name, so this
+ * is pulled from useAuth() on the frontend and sent with the
+ * request (same pattern already used by ShiftToggleButton.js for
+ * the header bar's Login/Logout shift toggle).
  */
-export const startTrackingSession = async ({ workOrderId, latitude, longitude }) => {
+export const startTrackingSession = async ({
+  workOrderId,
+  workOrderReference,
+  technicianName,
+  latitude,
+  longitude,
+}) => {
   try {
     const response = await apiClient.post('/tracking/start', {
       workOrderId,
+      workOrderReference,
+      technicianName,
       latitude,
       longitude,
     });
@@ -154,7 +168,9 @@ export const startTrackingSession = async ({ workOrderId, latitude, longitude })
 };
 
 /**
- * Sends a single location point while a session is Active.
+ * Sends a single location point - kept for backward compatibility,
+ * but Interval Pings should now go through sendTrackingLocationBatch
+ * below instead (buffered, flushed periodically as one bulk call).
  */
 export const sendTrackingLocation = async ({ sessionId, latitude, longitude, accuracy }) => {
   try {
@@ -172,6 +188,29 @@ export const sendTrackingLocation = async ({ sessionId, latitude, longitude, acc
     };
   } catch (error) {
     return buildTrackingErrorResult(error, 'Could not sync your location.');
+  }
+};
+
+/**
+ * NEW - uploads a BATCH of buffered Interval Pings in one call.
+ * See utils/pingBuffer.js for how pings accumulate locally before
+ * being flushed here (every 15 minutes, or immediately before any
+ * status change).
+ */
+export const sendTrackingLocationBatch = async ({ sessionId, pings }) => {
+  try {
+    const response = await apiClient.post('/tracking/location-batch', {
+      sessionId,
+      pings,
+    });
+
+    return {
+      success: true,
+      data: response.data?.data || null,
+      message: response.data?.message || '',
+    };
+  } catch (error) {
+    return buildTrackingErrorResult(error, 'Could not sync your buffered location points.');
   }
 };
 

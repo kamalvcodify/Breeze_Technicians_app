@@ -26,6 +26,19 @@ const { getAccessToken } = require("./zohoAuthService");
  *   individual login/logout session that day (supports multiple
  *   login/logout cycles per day, e.g. a lunch break).
  *
+ * FIX: recordLogout() and autoCloseAllOpenSessions() previously only
+ * updated the headline Logout_Time/Logout_Date when closing the
+ * DAY'S FIRST session (the "isMainLogoutEmpty" branch) - closing any
+ * LATER session that same day (second, third, etc.) only updated the
+ * matching subform row + Hours_Worked, leaving the headline
+ * Logout_Time frozen at whatever the first session's close time was.
+ * Confirmed via a real screenshot: headline showed 7:22am while a
+ * later subform row correctly showed 10:37am. Both functions now
+ * update the headline Logout_Time/Logout_Date on EVERY close,
+ * regardless of which session (first or later) is being closed -
+ * this field should always reflect the most recent logout, per the
+ * original client requirement ("you want the last logout time").
+ *
  * FIELD FORMATS: matching exactly what the Deluge script already
  * produces (confirmed as the "format CRM stores") - NOT ISO 8601,
  * since these are plain Date/Text fields, not native DateTime
@@ -203,6 +216,46 @@ async function findTodaysRecord(technicianName, dateStr) {
   }
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * findTodaysRecordWithRetry
+ * ----------------------------------------------------------------
+ * FIX: findTodaysRecord's plain search can come back empty for a
+ * few moments right after a record is created - Zoho's search
+ * index has a brief propagation delay, same class of issue already
+ * hit once tonight with a different module. This is most visible
+ * when Logout is called very soon after Login (e.g. rapid manual
+ * testing) - the search for the record Login just created can
+ * momentarily miss it, and the code was silently treating "not
+ * found yet" as "genuinely doesn't exist", returning a misleading
+ * HTTP 200 without actually updating anything. Retries a few times
+ * with a short growing delay before concluding the record really
+ * doesn't exist.
+ * ----------------------------------------------------------------
+ */
+async function findTodaysRecordWithRetry(technicianName, dateStr) {
+  const delaysMs = [0, 800, 1500];
+
+  for (let attempt = 0; attempt < delaysMs.length; attempt += 1) {
+    if (delaysMs[attempt] > 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await wait(delaysMs[attempt]);
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    const found = await findTodaysRecord(technicianName, dateStr);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
 async function getFullRecord(recordId) {
   const result = await crmRequest("get", `/${CRM_MODULE}/${recordId}`);
   return Array.isArray(result?.data) && result.data.length > 0 ? result.data[0] : null;
@@ -286,9 +339,6 @@ async function recordLogin({ technicianEmail, technicianName }) {
       return { detail: "You have successfully logged in.", synced: true };
     }
 
-    // Race-condition safety net, matching the Deluge script: another
-    // near-simultaneous request may have already created today's
-    // record first - recheck and append instead of failing outright.
     const recheck = await findTodaysRecord(technicianName, dateStr);
 
     if (recheck) {
@@ -342,7 +392,7 @@ async function recordLogin({ technicianEmail, technicianName }) {
 async function recordLogout({ technicianEmail, technicianName }) {
   const { dateStr, timeStr, now } = getEasternNowParts();
 
-  const existing = await findTodaysRecord(technicianName, dateStr);
+  const existing = await findTodaysRecordWithRetry(technicianName, dateStr);
 
   if (!existing) {
     return {
@@ -409,7 +459,13 @@ async function recordLogout({ technicianEmail, technicianName }) {
 
   const totalHoursStr = computeTotalHoursString(updatedSessions);
 
+  // FIX: the headline Logout_Time/Logout_Date are now ALWAYS updated
+  // here too, not just in the isMainLogoutEmpty branch above - this
+  // field should reflect the MOST RECENT logout regardless of
+  // whether it's the day's first session or a later one.
   await updateRecord(existing.id, {
+    Logout_Time: timeStr,
+    Logout_Date: dateStr,
     Hours_Worked: totalHoursStr,
     login_logout_status_update: updatedSessions,
   });
@@ -501,8 +557,13 @@ async function autoCloseAllOpenSessions() {
 
       const totalHoursStr = computeTotalHoursString(updatedSessions);
 
+      // FIX: same as recordLogout above - always update the headline
+      // Logout_Time/Logout_Date, not just when closing the day's
+      // first session.
       // eslint-disable-next-line no-await-in-loop
       await updateRecord(record.id, {
+        Logout_Time: timeStr,
+        Logout_Date: dateStr,
         Hours_Worked: totalHoursStr,
         login_logout_status_update: updatedSessions,
       });

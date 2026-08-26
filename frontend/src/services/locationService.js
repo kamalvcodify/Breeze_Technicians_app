@@ -19,9 +19,13 @@
 import * as Location from 'expo-location';
 import { BACKGROUND_LOCATION_TASK } from '../tasks/backgroundLocationTask';
 
-// Per handover doc Section 20/22 and today's testing requirement:
-// one location point per minute.
-const BACKGROUND_UPDATE_INTERVAL_MS = 60 * 1000;
+// FIX: reduced from 1 minute to 15 minutes, per instructions -
+// previously this produced ~15 separate location records for every
+// 15-minute span; now it produces one. This matches the SAME
+// interval used by the foreground ping timer in
+// useShiftTracking.js (FOREGROUND_PING_INTERVAL_MS) - both paths
+// should sample at the same reduced rate.
+const BACKGROUND_UPDATE_INTERVAL_MS = 15 * 60 * 1000;
 const BACKGROUND_UPDATE_DISTANCE_METERS = 0; // time-based, not distance-based
 
 export const PERMISSION_STATUS = {
@@ -147,7 +151,7 @@ export async function getBackgroundPermissionStatus() {
 
 /**
  * Starts continuous background location updates at a fixed
- * 1-minute interval (see BACKGROUND_UPDATE_INTERVAL_MS above). Once
+ * 15-minute interval (see BACKGROUND_UPDATE_INTERVAL_MS above). Once
  * started, expo-task-manager keeps invoking
  * tasks/backgroundLocationTask.js even if the app is backgrounded
  * or the screen is off, until stopBackgroundLocationUpdates() is

@@ -45,8 +45,8 @@ const STATUS_OPTIONS = [
     value: 'Working on it',
   },
   {
-    label: 'Completed',
-    value: 'Completed',
+    label: 'Closed - Ticket Resolved',
+    value: 'Closed - Ticket Resolved',
   },
   {
     label: 'On Hold',

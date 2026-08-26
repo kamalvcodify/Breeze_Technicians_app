@@ -18,11 +18,21 @@
  */
 import * as TaskManager from 'expo-task-manager';
 
-import { sendTrackingLocation } from '../api/trackingApi';
+import { addPing } from '../utils/pingBuffer';
 import { getActiveShiftContext } from '../services/shiftContextStore';
 
 export const BACKGROUND_LOCATION_TASK = 'breeze-background-location-task';
 
+/**
+ * FIX: pings are now BUFFERED locally (via utils/pingBuffer.js)
+ * instead of sent immediately to the backend one at a time - part
+ * of the efficiency redesign confirmed with the client. The buffer
+ * is flushed as ONE bulk insert every 15 minutes (or immediately
+ * before any status change) - see useShiftTracking.js, which owns
+ * the actual flush timer and upload call. This file's only
+ * responsibility now is capturing each ping with its correct
+ * original timestamp and pushing it into the shared buffer.
+ */
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (error) {
     console.error('[BackgroundLocationTask] Task error:', error.message);
@@ -36,20 +46,8 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     return;
   }
 
-  const { latitude, longitude, accuracy } = latestLocation.coords;
-  const recordedAt = new Date(latestLocation.timestamp).toISOString();
-
-  // TESTING VISIBILITY: confirms the task actually fired while the
-  // screen was off / app backgrounded. Safe to remove once
-  // background tracking is confirmed reliable.
-  console.log(
-    '[BackgroundLocationTask]',
-    JSON.stringify(
-      { latitude, longitude, accuracy, recordedAt },
-      null,
-      2
-    )
-  );
+  const { latitude, longitude } = latestLocation.coords;
+  const deviceTimestamp = new Date(latestLocation.timestamp).toISOString();
 
   // The task runs independently of any mounted screen/hook, so it
   // reads which shift is currently active from a small persisted
@@ -62,14 +60,10 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     return;
   }
 
-  const result = await sendTrackingLocation({
-    sessionId: activeShift.sessionId,
-    latitude,
-    longitude,
-    accuracy,
-  });
+  const bufferedCount = await addPing({ latitude, longitude, deviceTimestamp });
 
-  if (!result.success) {
-    console.error('[BackgroundLocationTask] Failed to sync location to backend:', result.message);
-  }
+  console.log(
+    `[BackgroundLocationTask] Buffered ping (${bufferedCount} pending):`,
+    JSON.stringify({ latitude, longitude, deviceTimestamp })
+  );
 });

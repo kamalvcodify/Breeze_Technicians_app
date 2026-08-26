@@ -32,7 +32,7 @@ const REPORTS = [
     key: 'rehabOrder',
     icon: 'hammer-outline',
     title: 'Rehab Order Reports',
-    description: 'Submitted rehab order entries.',
+    description: 'Submitted rehab order tickets.',
   },
   {
     key: 'checkInOut',

@@ -10,6 +10,14 @@
  *    a Break, per the handover doc: "Do not record coordinates"
  *    while paused. The background task reads only this.
  *
+ *    NEW: now also carries workOrderReference (the human-readable
+ *    ticket number, e.g. "10242-1"), not just the internal
+ *    workOrderId - the background task needs this to correctly
+ *    label buffered Interval Pings for Zoho CRM's Location_Logs
+ *    module (Reference/Related_Work_Order fields), matching the
+ *    same value already used everywhere else in the tracking
+ *    pipeline.
+ *
  * 2. SHIFT SESSION RECORD (setShiftSessionRecord/getShiftSessionRecord/
  *    clearShiftSessionRecord) - a separate, longer-lived snapshot of
  *    "is there a shift in progress for this Work Order, and is it
@@ -23,10 +31,10 @@
  *    the active shift context above was cleared.
  * ----------------------------------------------------------------
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const ACTIVE_CONTEXT_KEY = 'breeze:activeShiftContext';
-const SESSION_RECORD_KEY = 'breeze:shiftSessionRecord';
+const ACTIVE_CONTEXT_KEY = "breeze:activeShiftContext";
+const SESSION_RECORD_KEY = "breeze:shiftSessionRecord";
 
 /* ------------------------------------------------------------------
  * 1. Active shift context - read by the background task only.
@@ -34,17 +42,24 @@ const SESSION_RECORD_KEY = 'breeze:shiftSessionRecord';
 
 /**
  * Called when a shift starts (or resumes after a break) so the
- * background task knows which session to report location points
- * against.
+ * background task knows which session/Work Order to buffer location
+ * points against.
  */
-export async function setActiveShiftContext({ sessionId, workOrderId }) {
+export async function setActiveShiftContext({
+  sessionId,
+  workOrderId,
+  workOrderReference,
+}) {
   try {
     await AsyncStorage.setItem(
       ACTIVE_CONTEXT_KEY,
-      JSON.stringify({ sessionId, workOrderId })
+      JSON.stringify({ sessionId, workOrderId, workOrderReference }),
     );
   } catch (error) {
-    console.error('[shiftContextStore] Failed to save active shift context:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to save active shift context:",
+      error?.message,
+    );
   }
 }
 
@@ -56,7 +71,10 @@ export async function getActiveShiftContext() {
     const raw = await AsyncStorage.getItem(ACTIVE_CONTEXT_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
-    console.error('[shiftContextStore] Failed to read active shift context:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to read active shift context:",
+      error?.message,
+    );
     return null;
   }
 }
@@ -70,7 +88,10 @@ export async function clearActiveShiftContext() {
   try {
     await AsyncStorage.removeItem(ACTIVE_CONTEXT_KEY);
   } catch (error) {
-    console.error('[shiftContextStore] Failed to clear active shift context:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to clear active shift context:",
+      error?.message,
+    );
   }
 }
 
@@ -95,10 +116,19 @@ export async function setShiftSessionRecord({
   try {
     await AsyncStorage.setItem(
       SESSION_RECORD_KEY,
-      JSON.stringify({ sessionId, workOrderId, phase, shiftStartedAt, breakStartedAt })
+      JSON.stringify({
+        sessionId,
+        workOrderId,
+        phase,
+        shiftStartedAt,
+        breakStartedAt,
+      }),
     );
   } catch (error) {
-    console.error('[shiftContextStore] Failed to save shift session record:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to save shift session record:",
+      error?.message,
+    );
   }
 }
 
@@ -111,7 +141,10 @@ export async function getShiftSessionRecord() {
     const raw = await AsyncStorage.getItem(SESSION_RECORD_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
-    console.error('[shiftContextStore] Failed to read shift session record:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to read shift session record:",
+      error?.message,
+    );
     return null;
   }
 }
@@ -125,6 +158,9 @@ export async function clearShiftSessionRecord() {
   try {
     await AsyncStorage.removeItem(SESSION_RECORD_KEY);
   } catch (error) {
-    console.error('[shiftContextStore] Failed to clear shift session record:', error?.message);
+    console.error(
+      "[shiftContextStore] Failed to clear shift session record:",
+      error?.message,
+    );
   }
 }

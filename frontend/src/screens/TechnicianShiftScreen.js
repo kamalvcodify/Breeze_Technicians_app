@@ -153,6 +153,25 @@ export default function TechnicianShiftScreen({ navigation, route }) {
   const canRetryCheck =
     phase === SHIFT_PHASE.OUT_OF_RANGE || phase === SHIFT_PHASE.IDLE;
 
+  /**
+   * "Provide Update" - opens Submit Work Order pre-filled with this
+   * ticket's Ticket ID and a work-details hint from the issue
+   * description, so the technician only needs to fill in what's
+   * actually new. Property/Unit are deliberately left for manual
+   * selection - the assigned Work Order object doesn't carry the
+   * real CRM Property/Unit lookup IDs Submit Work Order needs, only
+   * an address string, so forcing a match here risks selecting the
+   * wrong record.
+   */
+  const handleProvideUpdate = () => {
+    navigation.navigate('SubmitWorkOrder', {
+      prefill: {
+        ticketId: workOrder?.workOrder || '',
+        workDetails: workOrder?.issueType || workOrder?.description || workOrder?.jobDescription || '',
+      },
+    });
+  };
+
   return (
     <TechnicianLayout navigation={navigation} activeRoute="MyAssignedWorkOrders">
       <View style={styles.headerBar}>
@@ -222,6 +241,14 @@ export default function TechnicianShiftScreen({ navigation, route }) {
                 ))}
               </View>
             )}
+
+            <View style={styles.actionButtonWrap}>
+              <AppButton
+                title="Provide Update"
+                variant="outline"
+                onPress={handleProvideUpdate}
+              />
+            </View>
           </View>
 
           {/* --- Status / location check ----------------------------- */}
@@ -307,7 +334,7 @@ export default function TechnicianShiftScreen({ navigation, route }) {
               </View>
             )}
 
-            {(shiftStartedAt || breakStartedAt) && (
+            {phase !== SHIFT_PHASE.ENDED && (shiftStartedAt || breakStartedAt) && (
               <View style={styles.timelineWrap}>
                 {!!shiftStartedAt && (
                   <View style={styles.timelineRow}>

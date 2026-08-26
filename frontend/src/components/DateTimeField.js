@@ -16,10 +16,24 @@ import styles from '../styles/DateTimeField.styles';
  * ----------------------------------------------------------------
  * Icons switched from plain text glyphs ("▣" / "◷") to Ionicons,
  * matching every other icon in the app.
+ *
+ * FIX: formatDate() previously used date.toISOString().slice(0,10)
+ * - toISOString() converts to UTC first, so picking a date late in
+ * the evening in a US timezone (behind UTC) could roll over to the
+ * NEXT UTC day, silently saving the wrong date (e.g. picking
+ * "Aug 25, 11:30 PM" became "2026-08-26"). This only showed up
+ * depending on the time of day, matching the "sometimes" symptom
+ * reported. Now builds the date string from the LOCAL year/month/
+ * day directly - no UTC conversion at all for a pure calendar date,
+ * since a calendar date isn't really a "moment in time" the way a
+ * full timestamp is.
  * ----------------------------------------------------------------
  */
 function formatDate(date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatTime(date) {

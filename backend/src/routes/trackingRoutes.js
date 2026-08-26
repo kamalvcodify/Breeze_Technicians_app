@@ -76,6 +76,14 @@ router.post(
 );
 
 router.post(
+  "/location-batch",
+  requireAuth,
+  asyncHandler(
+    trackingController.recordLocationBatch
+  )
+);
+
+router.post(
   "/break",
   requireAuth,
   asyncHandler(

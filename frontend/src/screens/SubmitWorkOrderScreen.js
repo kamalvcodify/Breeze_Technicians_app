@@ -98,8 +98,17 @@ function buildErrorMessage(error) {
   return 'The work order could not be submitted. Please try again.';
 }
 
-export default function SubmitWorkOrderScreen({ navigation }) {
+export default function SubmitWorkOrderScreen({ navigation, route }) {
   const { email, name, city } = useAuth();
+
+  // NEW: pre-fill support - a "Provide Update" button elsewhere in
+  // the app (e.g. the Technician Shift screen) can navigate here
+  // with { prefill: {...} } in its params, matching one ticket's
+  // shape (ticketId, property, unit, status, jobType, date,
+  // workDetails, city). When present, the first ticket starts
+  // pre-filled with this data instead of empty, so the technician
+  // only needs to fill in what's actually new/changed.
+  const prefill = route?.params?.prefill;
 
   /*
    * Shared CRM Property and Unit lookup logic.
@@ -121,7 +130,12 @@ export default function SubmitWorkOrderScreen({ navigation }) {
     isLoadingUnits,
   } = usePropertyUnitLookups();
 
-  const [tickets, setTickets] = useState([createTicket(name || '', city || '')]);
+  const [tickets, setTickets] = useState([
+    {
+      ...createTicket(name || '', city || ''),
+      ...(prefill || {}),
+    },
+  ]);
   const [ticketErrors, setTicketErrors] = useState([{}]);
   const [submitting, setSubmitting] = useState(false);
   const [popup, setPopup] = useState({

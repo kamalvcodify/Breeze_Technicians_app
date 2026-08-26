@@ -22,13 +22,25 @@ import {
 
 import { getDistanceInMeters, isWithinRadius } from '../utils/distance';
 
+import { addPing, getBufferedPings, clearBuffer } from '../utils/pingBuffer';
+
+import { useAuth } from '../context/AuthContext';
+
 import {
   startTrackingSession,
   startTrackingBreak,
   continueTrackingSession,
   stopTrackingSession,
-  sendTrackingLocation,
+  sendTrackingLocationBatch,
 } from '../api/trackingApi';
+
+// How often the locally buffered Interval Pings get flushed as ONE
+// bulk upload to Zoho CRM (efficiency redesign, confirmed with the
+// client - v1 uses a flat 15 minutes; smarter thresholds are a v2
+// item). The buffer is also flushed immediately before Break,
+// Continue, or Stop, regardless of this timer, so nothing pending
+// is ever stranded across a status change.
+export const PING_FLUSH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 // Per the handover doc, Section 18: "Suggested initial radius: 150 metres."
 export const SHIFT_RADIUS_METERS = 150;
@@ -42,7 +54,11 @@ export const SHIFT_RADIUS_METERS = 150;
 // only fire in a development/production build, NOT in Expo Go - so
 // without this, testing in Expo Go would look like tracking "isn't
 // working" even though Start/Break/Continue/Stop calls succeed fine.
-export const FOREGROUND_PING_INTERVAL_MS = 60 * 1000; // 1 minute
+// FIX: reduced from 1 minute to 15 minutes, per instructions -
+// matches the same reduction in locationService.js's
+// BACKGROUND_UPDATE_INTERVAL_MS, so both the foreground and
+// background ping paths sample at the same rate.
+export const FOREGROUND_PING_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Shift phase constants. These map directly onto the "Suggested
@@ -89,6 +105,8 @@ export const SHIFT_PHASE = {
  * here, not in the screen.
  */
 export default function useShiftTracking({ workOrder }) {
+  const { name: technicianName } = useAuth();
+
   const [phase, setPhase] = useState(SHIFT_PHASE.IDLE);
   const [errorMessage, setErrorMessage] = useState('');
   const [distanceMeters, setDistanceMeters] = useState(null);
@@ -99,6 +117,35 @@ export default function useShiftTracking({ workOrder }) {
   // Holds the backend session id once a shift has actually started,
   // so Break/Continue/Stop calls know which session to act on.
   const sessionIdRef = useRef(null);
+
+  /**
+   * Uploads every currently buffered Interval Ping as ONE bulk call,
+   * then clears the buffer only on a confirmed successful sync -
+   * called by the 15-minute timer below, and also immediately
+   * before Break/Continue/Stop so nothing pending is ever stranded
+   * across a status change.
+   */
+  const flushPingBuffer = useCallback(async () => {
+    const pendingPings = await getBufferedPings();
+
+    if (pendingPings.length === 0) {
+      return;
+    }
+
+    const result = await sendTrackingLocationBatch({
+      sessionId: sessionIdRef.current,
+      pings: pendingPings,
+    });
+
+    if (result.success) {
+      await clearBuffer();
+    } else {
+      console.warn(
+        '[useShiftTracking] Failed to flush ping buffer - will retry on next flush:',
+        result.message
+      );
+    }
+  }, []);
 
   const workOrderLatitude = Number(workOrder?.latitude);
   const workOrderLongitude = Number(workOrder?.longitude);
@@ -192,6 +239,8 @@ export default function useShiftTracking({ workOrder }) {
 
     const result = await startTrackingSession({
       workOrderId: workOrder?.id,
+      workOrderReference: workOrder?.workOrder,
+      technicianName,
       latitude: currentPosition.latitude,
       longitude: currentPosition.longitude,
     });
@@ -213,6 +262,7 @@ export default function useShiftTracking({ workOrder }) {
     await setActiveShiftContext({
       sessionId: sessionIdRef.current,
       workOrderId: workOrder?.id,
+      workOrderReference: workOrder?.workOrder,
     });
 
     // Separate, longer-lived record used purely to rehydrate this
@@ -261,6 +311,12 @@ export default function useShiftTracking({ workOrder }) {
   const startBreak = useCallback(async () => {
     setPhase(SHIFT_PHASE.PAUSING);
     setErrorMessage('');
+
+    // Flush any pending buffered pings BEFORE pausing, so nothing
+    // from this active segment is left stranded across the status
+    // change - per the efficiency redesign, flushes happen every 15
+    // minutes AND immediately before Break/Continue/Stop.
+    await flushPingBuffer();
 
     const result = await startTrackingBreak({ sessionId: sessionIdRef.current });
 
@@ -330,6 +386,7 @@ export default function useShiftTracking({ workOrder }) {
     await setActiveShiftContext({
       sessionId: sessionIdRef.current,
       workOrderId: workOrder?.id,
+      workOrderReference: workOrder?.workOrder,
     });
 
     await setShiftSessionRecord({
@@ -354,6 +411,10 @@ export default function useShiftTracking({ workOrder }) {
   const endShift = useCallback(async () => {
     setPhase(SHIFT_PHASE.STOPPING);
     setErrorMessage('');
+
+    // Same reasoning as startBreak above - flush before the status
+    // change, not just on the 15-minute timer.
+    await flushPingBuffer();
 
     const finalPosition = await getCurrentPosition();
 
@@ -428,12 +489,10 @@ export default function useShiftTracking({ workOrder }) {
   }, [workOrder?.id]);
 
   /**
-   * Foreground interval ping — see FOREGROUND_PING_INTERVAL_MS above
-   * for why this exists alongside the background task. Starts when
-   * phase becomes ACTIVE, stops on Break/Stop/unmount. (On unmount,
-   * only THIS foreground interval stops - the actual background
-   * task, if permission was granted, keeps running independently;
-   * see tasks/backgroundLocationTask.js.)
+   * Foreground interval ping — buffers each ping locally instead of
+   * sending it immediately (efficiency redesign). The actual upload
+   * happens via the 15-minute flush timer below, or immediately
+   * before Break/Continue/Stop.
    */
   useEffect(() => {
     if (phase !== SHIFT_PHASE.ACTIVE) {
@@ -448,24 +507,42 @@ export default function useShiftTracking({ workOrder }) {
         return;
       }
 
-      console.log(
-        `[useShiftTracking] Foreground ping (every ${FOREGROUND_PING_INTERVAL_MS / 1000}s):`,
-        { sessionId: sessionIdRef.current, latitude: position.latitude, longitude: position.longitude }
-      );
+      const deviceTimestamp = new Date().toISOString();
 
-      const result = await sendTrackingLocation({
-        sessionId: sessionIdRef.current,
+      const bufferedCount = await addPing({
         latitude: position.latitude,
         longitude: position.longitude,
+        deviceTimestamp,
       });
 
-      if (!result.success) {
-        console.error('[useShiftTracking] Foreground ping failed to sync to backend:', result.message);
-      }
+      console.log(
+        `[useShiftTracking] Foreground ping buffered (${bufferedCount} pending):`,
+        { sessionId: sessionIdRef.current, latitude: position.latitude, longitude: position.longitude }
+      );
     }, FOREGROUND_PING_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
   }, [phase]);
+
+  /**
+   * 15-minute flush timer - uploads every currently buffered
+   * Interval Ping as ONE bulk call to Zoho CRM. Runs only while a
+   * shift is genuinely Active (On Break intentionally does not
+   * accumulate new pings, so nothing new needs flushing then - any
+   * pings from before the break were already flushed by startBreak
+   * above).
+   */
+  useEffect(() => {
+    if (phase !== SHIFT_PHASE.ACTIVE) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      flushPingBuffer();
+    }, PING_FLUSH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [phase, flushPingBuffer]);
 
   /**
    * Resets the hook back to its initial state - used if the
