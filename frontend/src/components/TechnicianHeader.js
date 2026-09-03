@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Modal,
   Pressable,
   Text,
@@ -50,6 +51,12 @@ const REPORT_LINKS = [
   { key: 'checkInOut', icon: 'time-outline', label: 'Check In / Check Out Reports' },
   { key: 'moveOut', icon: 'exit-outline', label: 'Move Out Reports' },
   { key: 'rentReadyChecklist', icon: 'checkmark-done-outline', label: 'Rent Ready Checklist Reports' },
+];
+
+// NEW - Admin-only quick link, appended to REPORT_LINKS only when
+// isAdmin is true (see ReportsMenu below).
+const ADMIN_ONLY_REPORT_LINKS = [
+  { key: 'appFolioWorkOrders', icon: 'construct-outline', label: 'AppFolio Work Orders' },
 ];
 
 export default function TechnicianHeader({ navigation, activeRoute, isAdmin = false }) {
@@ -152,20 +159,26 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
   );
 
   // Peek submenu under Reports - jumps straight into a specific
-  // report's list, bypassing the Reports landing grid.
-  const ReportsMenu = ({ mobile = false }) => (
-    <View style={mobile ? styles.mobileSubmenu : styles.desktopDropdown}>
-      {REPORT_LINKS.map((report) => (
-        <MenuItem
-          key={report.key}
-          icon={report.icon}
-          label={report.label}
-          onPress={() => goToReport(report.key, report.label)}
-          mobile={mobile}
-        />
-      ))}
-    </View>
-  );
+  // report's list, bypassing the Reports landing grid. Admin sees
+  // one extra entry (AppFolio Work Orders) appended via
+  // ADMIN_ONLY_REPORT_LINKS.
+  const ReportsMenu = ({ mobile = false }) => {
+    const links = isAdmin ? [...REPORT_LINKS, ...ADMIN_ONLY_REPORT_LINKS] : REPORT_LINKS;
+
+    return (
+      <View style={mobile ? styles.mobileSubmenu : styles.desktopDropdown}>
+        {links.map((report) => (
+          <MenuItem
+            key={report.key}
+            icon={report.icon}
+            label={report.label}
+            onPress={() => goToReport(report.key, report.label)}
+            mobile={mobile}
+          />
+        ))}
+      </View>
+    );
+  };
 
   // --- Shared row builders — used for EVERY top-level nav item ---------
 
@@ -244,17 +257,16 @@ export default function TechnicianHeader({ navigation, activeRoute, isAdmin = fa
             </TouchableOpacity>
           )}
 
+          {/* NEW - logo-only, per instructions ("dint want to add
+              the text... this time I want to check how the app goes
+              with the logo"). No BREEZE/PROPERTY GROUP text - just
+              the image, sized larger than the earlier attempt. */}
           <TouchableOpacity style={styles.brand} onPress={handleBrandPress} activeOpacity={isAdmin ? 1 : 0.7}>
-            <View style={styles.logoMark}>
-              <View style={[styles.building, styles.buildingLeft]} />
-              <View style={[styles.building, styles.buildingCentre]} />
-              <View style={[styles.building, styles.buildingRight]} />
-            </View>
-
-            <View>
-              <Text style={styles.brandName}>BREEZE</Text>
-              <Text style={styles.brandSubtext}>PROPERTY GROUP</Text>
-            </View>
+            <Image
+              source={require('../../assets/Graphic_feature_image.png')}
+              style={styles.logoMark}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
 

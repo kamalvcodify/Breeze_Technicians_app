@@ -1,6 +1,14 @@
 const jwt = require("jsonwebtoken");
 const config = require("../config/env");
 
+/**
+ * middleware/authMiddleware.js
+ * ----------------------------------------------------------------
+ * REVERTED - the active/deactivate feature (and its per-request
+ * Is_Active check + cache) has been removed from the app entirely,
+ * per instructions. Back to simple JWT verification only.
+ * ----------------------------------------------------------------
+ */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const [scheme, token] = authHeader.split(" ");

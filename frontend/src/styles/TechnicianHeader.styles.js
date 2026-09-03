@@ -31,44 +31,16 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // FIX: image-only now, no BREEZE/PROPERTY GROUP text alongside it
+  // - sized noticeably larger than the earlier icon-sized attempt
+  // (34x34/34x30), since there's no text competing for space in the
+  // header anymore. Height is kept within the header's own
+  // minHeight (52) with a little breathing room; width is generous
+  // since resizeMode="contain" preserves the real image's aspect
+  // ratio regardless of exact dimensions.
   logoMark: {
-    width: 34,
-    height: 30,
-    marginRight: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  building: {
-    borderWidth: 1,
-    borderColor: colors.textOnDarkMuted,
-    backgroundColor: colors.borderDark,
-    marginRight: 2,
-    borderRadius: 1,
-  },
-  buildingLeft: {
-    width: 7,
-    height: 17,
-  },
-  buildingCentre: {
-    width: 10,
-    height: 28,
-  },
-  buildingRight: {
-    width: 8,
-    height: 22,
-  },
-  brandName: {
-    color: colors.blue,
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.extrabold,
-    letterSpacing: 3,
-  },
-  brandSubtext: {
-    color: colors.blueLight,
-    fontSize: 6,
-    fontWeight: typography.weight.bold,
-    letterSpacing: 2,
-    marginTop: 1,
+    width: 160,
+    height: 44,
   },
 
   // --- Desktop navigation ------------------------------------------------

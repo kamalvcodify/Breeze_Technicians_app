@@ -153,8 +153,21 @@ export default function RentReadyChecklistScreen({ navigation }) {
     setSubmitting(true);
 
     try {
+      // FIX: propertyName was never captured anywhere in this
+      // screen's entry state (unlike unit/unitName, which already
+      // work correctly) - computed here from the already-loaded
+      // `properties` list, matched against the selected property's
+      // ID, rather than sending only the raw ID with no display
+      // name at all. See zohoRentReadyChecklistService.js's Name
+      // composition, which needs this to build a readable record
+      // name instead of falling back to the raw CRM ID.
+      const selectedProperty = properties.find(
+        (property) => String(property.id) === String(entry.property)
+      );
+
       const payload = {
         ...entry,
+        propertyName: selectedProperty?.name || '',
         technicianName: entry.technicianName.trim(),
         email: entry.email.trim(),
         notes: entry.notes.trim(),

@@ -194,6 +194,14 @@ export default StyleSheet.create({
   badgeTech: {
     backgroundColor: colors.surfaceMuted,
   },
+  // NEW - reuses the SAME success/error color tokens already used by
+  // errorBanner/successBanner above, for consistency.
+  badgeActive: {
+    backgroundColor: colors.successBg,
+  },
+  badgeInactive: {
+    backgroundColor: colors.errorBg,
+  },
   badgeText: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
@@ -203,5 +211,81 @@ export default StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: colors.border,
+  },
+
+  // NEW - deactivate/activate + delete action row
+  userActionsRow: {
+    flexDirection: 'row',
+    marginLeft: spacing.sm,
+  },
+  userActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 6,
+  },
+  userActionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.blue,
+    marginLeft: 3,
+  },
+  userActionButtonTextDanger: {
+    color: colors.error,
+  },
+
+  // NEW - delete-confirmation modal
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  confirmTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  confirmMessage: {
+    fontSize: typography.size.body,
+    color: colors.textSecondary,
+    lineHeight: typography.size.body * typography.lineHeight.normal,
+    marginBottom: spacing.lg,
+  },
+  confirmButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  confirmButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    marginLeft: spacing.sm,
+    minWidth: 90,
+    alignItems: 'center',
+  },
+  confirmButtonCancel: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  confirmButtonCancelText: {
+    color: colors.textPrimary,
+    fontWeight: typography.weight.semibold,
+  },
+  confirmButtonDelete: {
+    backgroundColor: colors.error,
+  },
+  confirmButtonDeleteText: {
+    color: colors.white,
+    fontWeight: typography.weight.bold,
   },
 });

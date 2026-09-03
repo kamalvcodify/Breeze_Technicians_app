@@ -17,6 +17,29 @@ const getPrimaryDescription = (workOrder) => {
 };
 
 /**
+ * formatReadableDateTime
+ * ----------------------------------------------------------------
+ * NEW - same formatting already applied backend-side for the Admin
+ * report (zohoReportService.js), applied here too for consistency,
+ * since this card now also surfaces status/last-updated per
+ * instructions ("display all possible info the work order has").
+ * ----------------------------------------------------------------
+ */
+const formatReadableDateTime = (isoValue) => {
+  if (!isoValue) {
+    return '';
+  }
+
+  const date = new Date(isoValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return isoValue;
+  }
+
+  return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
+/**
  * components/AssignedWorkOrderCard.js
  * ----------------------------------------------------------------
  * Sized and typeset to match the Home dashboard's cards exactly
@@ -83,6 +106,29 @@ const AssignedWorkOrderCard = ({ workOrder, isSelected = false, onSelect }) => {
           {workOrder.address || 'Address not available'}
         </Text>
       </View>
+
+      {/* NEW - status + last updated, per instructions ("display
+          all possible info the work order has"). Reuses the SAME
+          metaRow/metaIcon/metaText styles already used above, so no
+          new style keys are needed. */}
+      {!!workOrder.status && (
+        <View style={styles.metaRow}>
+          <Ionicons name="flag-outline" size={13} color={colors.textFaint} style={styles.metaIcon} />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {workOrder.status}
+            {workOrder.priority ? ` · ${workOrder.priority} priority` : ''}
+          </Text>
+        </View>
+      )}
+
+      {!!workOrder.lastUpdatedAt && (
+        <View style={styles.metaRow}>
+          <Ionicons name="time-outline" size={13} color={colors.textFaint} style={styles.metaIcon} />
+          <Text style={styles.metaText} numberOfLines={1}>
+            Updated {formatReadableDateTime(workOrder.lastUpdatedAt)}
+          </Text>
+        </View>
+      )}
 
       <Text style={styles.description} numberOfLines={2}>
         {description}

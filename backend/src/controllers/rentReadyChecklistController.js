@@ -15,6 +15,13 @@ function cleanText(value) {
  * ID, kept for reference). unitName is the display NAME that
  * actually gets sent to Zoho - see
  * zohoRentReadyChecklistService.js.
+ *
+ * FIX 2: propertyName now also passed through the same way -
+ * previously only the raw property ID reached this controller,
+ * with no display name at all, causing the CRM record's Name field
+ * to show the ID instead of a readable name (e.g. "44 Greenwood
+ * Ave - 21/8/2026"). Computed on the frontend from the already-
+ * loaded properties list - see RentReadyChecklistScreen.js.
  * ----------------------------------------------------------------
  */
 function normalizeChecklist(checklist) {
@@ -34,6 +41,7 @@ function normalizeChecklist(checklist) {
 function normalizeEntry(entry) {
   return {
     property: cleanText(entry.property),
+    propertyName: cleanText(entry.propertyName),
     unit: cleanText(entry.unit),
     unitName: cleanText(entry.unitName),
     technicianName: cleanText(entry.technicianName),

@@ -1,0 +1,602 @@
+{
+  "the waterford, oh 45804": {
+    "latitude": 40.7275,
+    "longitude": -84.089
+  },
+  "10 southard ave, oh 43604": {
+    "latitude": 41.6586094,
+    "longitude": -83.5450337
+  },
+  "853 crandall ave, oh 44510": {
+    "latitude": 41.1217266,
+    "longitude": -80.664643
+  },
+  "332 14th st, oh 43604": {
+    "latitude": 41.6560588,
+    "longitude": -83.5433724
+  },
+  "322 14th st, toledo, oh 43604": {
+    "latitude": 41.6559507,
+    "longitude": -83.5434639
+  },
+  "913 hawthorne st, oh 44502": {
+    "latitude": 41.0957791,
+    "longitude": -80.6669589
+  },
+  "338-340 s. pierce st, oh 45801": {
+    "latitude": 40.7368682,
+    "longitude": -84.1095025
+  },
+  "2808 benford ln, oh 44505": {
+    "latitude": 41.130237,
+    "longitude": -80.5748357
+  },
+  "1919 ottawa dr, oh 43606": {
+    "latitude": 41.6684674,
+    "longitude": -83.5893207
+  },
+  "4912 douglas, oh 43613": {
+    "latitude": 41.7039,
+    "longitude": -83.6034
+  },
+  "5339 secor, oh 43623": {
+    "latitude": 40.25034,
+    "longitude": -83.00018
+  },
+  "2974 megan cir, oh 44505": {
+    "latitude": 41.1294982,
+    "longitude": -80.5747778
+  },
+  "126 drummond ave, oh 44506": {
+    "latitude": 41.1006844,
+    "longitude": -80.6204635
+  },
+  "205 w chalmers ave, oh 44507": {
+    "latitude": 41.0843594,
+    "longitude": -80.6619522
+  },
+  "227 s truesdale ave, oh 44506": {
+    "latitude": 41.0925549,
+    "longitude": -80.6256441
+  },
+  "2971 megan cir, oh 44505": {
+    "latitude": 41.1293339,
+    "longitude": -80.5749364
+  },
+  "2995 megan cir, oh 44505": {
+    "latitude": 41.130024,
+    "longitude": -80.574296
+  },
+  "3726 choice ct, oh 44505": {
+    "latitude": 41.1308408,
+    "longitude": -80.5741052
+  },
+  "470 chicago ave, oh 44511": {
+    "latitude": 41.0779899,
+    "longitude": -80.6691223
+  },
+  "3231 beaumont dr, oh 43608": {
+    "latitude": 41.6822208,
+    "longitude": -83.5181803
+  },
+  "914 e. bancroft st, oh 43611": {
+    "latitude": 41.6657293,
+    "longitude": -83.5347779
+  },
+  "2959 megan cir, oh 44505": {
+    "latitude": 41.1293359,
+    "longitude": -80.5755222
+  },
+  "14 southard ave, oh 43604": {
+    "latitude": 41.6586101,
+    "longitude": -83.5450005
+  },
+  "900 ridge ave, oh 44502": {
+    "latitude": 41.09456,
+    "longitude": -80.666725
+  },
+  "215 eastern ave, oh 43609": {
+    "latitude": 41.6351094,
+    "longitude": -83.5448337
+  },
+  "920 rogers st, oh 43605": {
+    "latitude": 41.6334133,
+    "longitude": -83.5194091
+  },
+  "3855 revere dr , oh 43612": {
+    "latitude": 41.68984,
+    "longitude": -83.5769321
+  },
+  "209 austin st, oh 43608": {
+    "latitude": 41.6733218,
+    "longitude": -83.5396351
+  },
+  "323 langdon st, oh 43609": {
+    "latitude": 41.6337434,
+    "longitude": -83.5580163
+  },
+  "1413 colburn st, oh 43609": {
+    "latitude": 41.6297851,
+    "longitude": -83.5751247
+  },
+  "1945 ottawa dr, oh 43606": {
+    "latitude": 41.6684549,
+    "longitude": -83.5898678
+  },
+  "vine st. apts., oh 45804": {
+    "latitude": 40.726392,
+    "longitude": -84.105032
+  },
+  "2426 broadway st, oh 43609": {
+    "latitude": 41.5354961,
+    "longitude": -83.5652825
+  },
+  "2026 berkshire pl, oh 43613": {
+    "latitude": 41.690162,
+    "longitude": -83.59256
+  },
+  "133 w warren ave, oh 44507": {
+    "latitude": 41.0811969,
+    "longitude": -80.6605735
+  },
+  "1840 talbot st , oh 43613": {
+    "latitude": 41.6871414,
+    "longitude": -83.5879975
+  },
+  "44 greenwood ave, oh 43605": {
+    "latitude": 41.6412906,
+    "longitude": -83.529571
+  },
+  "1426 prouty ave, oh 43609": {
+    "latitude": 41.6290897,
+    "longitude": -83.5756108
+  },
+  "3152 n. ontario st, oh 43611": {
+    "latitude": 41.683088,
+    "longitude": -83.4964187
+  },
+  "551 spencer st, oh 43609": {
+    "latitude": 41.6295603,
+    "longitude": -83.5744673
+  },
+  "220 e pearl st , oh 43608": {
+    "latitude": 41.6839661,
+    "longitude": -83.5419757
+  },
+  "3015 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "528 e central ave, oh 43608": {
+    "latitude": 41.678761,
+    "longitude": -83.5331691
+  },
+  "331 n. jameson ave, oh 45805": {
+    "latitude": 40.7430889,
+    "longitude": -84.1245969
+  },
+  "1205 moran ave, oh 43607": {
+    "latitude": 41.6522004,
+    "longitude": -83.6195464
+  },
+  "226-228 langdon st, oh 43609": {
+    "latitude": 41.6356071,
+    "longitude": -83.5582338
+  },
+  "204 mettler st, oh 43608": {
+    "latitude": 41.6749764,
+    "longitude": -83.540559
+  },
+  "547 austin st, oh 43608": {
+    "latitude": 41.6737812,
+    "longitude": -83.5330971
+  },
+  "4321 burnham ave, oh 43612": {
+    "latitude": 41.69741,
+    "longitude": -83.5592997
+  },
+  "2155 perth st, oh 43607": {
+    "latitude": 41.6623674,
+    "longitude": -83.601538
+  },
+  "2356 torrey hill dr, oh 43606": {
+    "latitude": 41.6679024,
+    "longitude": -83.5910366
+  },
+  "331.5 n. jameson ave, oh 45805": {
+    "latitude": 40.7523503,
+    "longitude": -84.1257748
+  },
+  "422 dexter st, oh 43608": {
+    "latitude": 41.6768989,
+    "longitude": -83.53559
+  },
+  "4137 walker ave, oh 43612": {
+    "latitude": 41.694452,
+    "longitude": -83.5634448
+  },
+  "56 e pearl st, oh 43608": {
+    "latitude": 41.6838192,
+    "longitude": -83.5450717
+  },
+  "2046 e london sq, oh 43606": {
+    "latitude": 41.6611033,
+    "longitude": -83.5707073
+  },
+  "1215 woodstock ave, oh 43607": {
+    "latitude": 41.6520515,
+    "longitude": -83.5926773
+  },
+  "1531 freedom st, oh 43605": {
+    "latitude": 41.6277452,
+    "longitude": -83.5083478
+  },
+  "3140 n. ontario st, oh 43611": {
+    "latitude": 41.682896,
+    "longitude": -83.49665
+  },
+  "430 st louis ave, oh 44511": {
+    "latitude": 41.0770964,
+    "longitude": -80.6675237
+  },
+  "2002 brame pl, oh 43613": {
+    "latitude": 41.6916078,
+    "longitude": -83.5920861
+  },
+  "4128 thornton ave, oh 43612": {
+    "latitude": 41.6941067,
+    "longitude": -83.5664511
+  },
+  "4345 burnham ave, oh 43612": {
+    "latitude": 41.6979763,
+    "longitude": -83.5593194
+  },
+  "878 hampton ave, oh 43609": {
+    "latitude": 41.6239469,
+    "longitude": -83.582694
+  },
+  "2445 w bancroft st, oh 43607": {
+    "latitude": 41.6631951,
+    "longitude": -83.6019343
+  },
+  "18 southard ave, oh 43604": {
+    "latitude": 41.6586108,
+    "longitude": -83.5449673
+  },
+  "1477 south ave, oh 43609": {
+    "latitude": 41.6306425,
+    "longitude": -83.5774342
+  },
+  "2975 megan cir, oh 44505": {
+    "latitude": 41.1293241,
+    "longitude": -80.5747412
+  },
+  "1032 harding dr, oh 43609": {
+    "latitude": 41.6269112,
+    "longitude": -83.5657559
+  },
+  "319 n detroit ave, oh 43607": {
+    "latitude": 41.6432331,
+    "longitude": -83.5841106
+  },
+  "936-938 w. wayne st, oh 45805": {
+    "latitude": 40.7440987,
+    "longitude": -84.120514
+  },
+  "328 14th st, toledo, oh 43604": {
+    "latitude": 41.6560156,
+    "longitude": -83.543409
+  },
+  "201 w chalmers ave, oh 44507": {
+    "latitude": 41.0843595,
+    "longitude": -80.6618733
+  },
+  "901 hawthorne st, oh 44502": {
+    "latitude": 41.095278,
+    "longitude": -80.666764
+  },
+  "2435 w bancroft st, oh 43607": {
+    "latitude": 41.6631953,
+    "longitude": -83.601864
+  },
+  "135 everett st, oh 43608": {
+    "latitude": 41.6759907,
+    "longitude": -83.5419457
+  },
+  "182 w warren ave, oh 44507": {
+    "latitude": 41.0813616,
+    "longitude": -80.6615577
+  },
+  "2987 megan cir, oh 44505": {
+    "latitude": 41.1296505,
+    "longitude": -80.5743707
+  },
+  "928 ridge ave, oh 44502": {
+    "latitude": 41.0945597,
+    "longitude": -80.6671947
+  },
+  "1537 remington st, oh 43605": {
+    "latitude": 41.622483,
+    "longitude": -83.5216569
+  },
+  "3136 n. ontario st, oh 43611": {
+    "latitude": 41.682832,
+    "longitude": -83.4967271
+  },
+  "828 ambia st, oh 43610": {
+    "latitude": 41.676483,
+    "longitude": -83.5634783
+  },
+  "336 14th st, oh 43604": {
+    "latitude": 41.656102,
+    "longitude": -83.5433359
+  },
+  "713 orchard st, oh 43609": {
+    "latitude": 41.6277135,
+    "longitude": -83.5564664
+  },
+  "514 clyde st, oh 44510": {
+    "latitude": 41.1177152,
+    "longitude": -80.6651546
+  },
+  "2999 megan cir, oh 44505": {
+    "latitude": 41.130517,
+    "longitude": -80.573927
+  },
+  "6 southard ave, oh 43604": {
+    "latitude": 41.6586087,
+    "longitude": -83.5450668
+  },
+  "2979 megan cir, oh 44505": {
+    "latitude": 41.1293491,
+    "longitude": -80.5745496
+  },
+  "705 nicholas st, oh 43609": {
+    "latitude": 41.6273226,
+    "longitude": -83.5791176
+  },
+  "1735 wychwood st, oh 43613": {
+    "latitude": 41.6831855,
+    "longitude": -83.585364
+  },
+  "1449 n. huron st, oh 43611": {
+    "latitude": 41.6624469,
+    "longitude": -83.5203338
+  },
+  "17 e oakland st, oh 43608": {
+    "latitude": 41.6822577,
+    "longitude": -83.5454911
+  },
+  "326 wirt blvd, oh 44510": {
+    "latitude": 41.115847,
+    "longitude": -80.663975
+  },
+  "332 willard st, oh 43605": {
+    "latitude": 41.6446919,
+    "longitude": -83.5137232
+  },
+  "1909 n. superior st, oh 43611": {
+    "latitude": 41.667786,
+    "longitude": -83.5106193
+  },
+  "3130 stickney ave, oh 43608": {
+    "latitude": 41.6798585,
+    "longitude": -83.5263263
+  },
+  "549 spencer st, oh 43609": {
+    "latitude": 41.6295783,
+    "longitude": -83.5744667
+  },
+  "4139 walker ave, oh 43612": {
+    "latitude": 41.6944761,
+    "longitude": -83.5634456
+  },
+  "270 valleywood / 1525 kelsey, oh 43605": {
+    "latitude": 41.645776,
+    "longitude": -83.515941
+  },
+  "1434 n ontario, oh 43604": {
+    "latitude": 41.6265665,
+    "longitude": -83.3709479
+  },
+  "2983 megan cir, oh 44505": {
+    "latitude": 41.1294646,
+    "longitude": -80.574401
+  },
+  "2960 megan cir, oh 44505": {
+    "latitude": 41.1295013,
+    "longitude": -80.5754362
+  },
+  "3023 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "514 magnolia st, oh 43611": {
+    "latitude": 41.6612526,
+    "longitude": -83.520823
+  },
+  "522 saint louis st, oh 43605": {
+    "latitude": 41.6409344,
+    "longitude": -83.5224527
+  },
+  "1723 cutter st, oh 43605": {
+    "latitude": 41.6526043,
+    "longitude": -83.5111497
+  },
+  "3045 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "771 orchard st, oh 43609": {
+    "latitude": 41.6277159,
+    "longitude": -83.5579863
+  },
+  "1863 n. erie st, oh 43611": {
+    "latitude": 41.6676612,
+    "longitude": -83.5126457
+  },
+  "911 hawthorne st, oh 44502": {
+    "latitude": 41.095278,
+    "longitude": -80.667715
+  },
+  "1802 bigelow, oh 43613": {
+    "latitude": 40.25034,
+    "longitude": -83.00018
+  },
+  "244 knower st, oh 43609": {
+    "latitude": 41.6316619,
+    "longitude": -83.5453498
+  },
+  "731 parmalee ave, oh 44510": {
+    "latitude": 41.115051,
+    "longitude": -80.660723
+  },
+  "132 s forest ave, oh 44506": {
+    "latitude": 41.0931995,
+    "longitude": -80.6305145
+  },
+  "520 magnolia st, oh 43604": {
+    "latitude": 41.661524,
+    "longitude": -83.521051
+  },
+  "1208 w. high st, oh 45805": {
+    "latitude": 40.7414843,
+    "longitude": -84.1282879
+  },
+  "2804 benford ln, oh 44505": {
+    "latitude": 41.130237,
+    "longitude": -80.5747463
+  },
+  "432 maumee ave, oh 43609": {
+    "latitude": 41.6313734,
+    "longitude": -83.5503064
+  },
+  "841 crandall ave, oh 44510": {
+    "latitude": 41.1217262,
+    "longitude": -80.6645244
+  },
+  "3057 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "811 collins st, oh 43610": {
+    "latitude": 41.6753241,
+    "longitude": -83.5629639
+  },
+  "816 e. bancroft st, oh 43608": {
+    "latitude": 41.6650305,
+    "longitude": -83.5362433
+  },
+  "291-295 e broadway st, oh 43605": {
+    "latitude": 41.5621389,
+    "longitude": -83.6495773
+  },
+  "2992 megan cir, oh 44505": {
+    "latitude": 41.130319,
+    "longitude": -80.574329
+  },
+  "241 harrison ave, oh 45804": {
+    "latitude": 40.7367854,
+    "longitude": -84.0939222
+  },
+  "2803 benford ln, oh 44505": {
+    "latitude": 41.1300706,
+    "longitude": -80.5746848
+  },
+  "548 saint louis st, oh 43605": {
+    "latitude": 41.640271,
+    "longitude": -83.5224279
+  },
+  "464 chicago ave, oh 44511": {
+    "latitude": 41.0779894,
+    "longitude": -80.6689457
+  },
+  "908 ridge ave, oh 44502": {
+    "latitude": 41.0945599,
+    "longitude": -80.6668592
+  },
+  "3019 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "708 bowman st, oh 43609": {
+    "latitude": 41.6266403,
+    "longitude": -83.5589941
+  },
+  "3035 n. ontario st, oh 43611": {
+    "latitude": 41.6639204,
+    "longitude": -83.522477
+  },
+  "151 s bruce st, oh 44506": {
+    "latitude": 41.0934428,
+    "longitude": -80.6269359
+  },
+  "3405 beaumont dr, oh 43608": {
+    "latitude": 41.6853747,
+    "longitude": -83.5183091
+  },
+  "2967 megan cir, oh 44505": {
+    "latitude": 41.1293388,
+    "longitude": -80.5751315
+  },
+  "1371 felt st, oh 43605": {
+    "latitude": 41.6256572,
+    "longitude": -83.5258502
+  },
+  "1418 walnut st, oh 43611": {
+    "latitude": 41.6023641,
+    "longitude": -83.7925305
+  },
+  "1457 n. huron st, oh 43611": {
+    "latitude": 41.662528,
+    "longitude": -83.5201633
+  },
+  "3031 n. ontario st, oh 43611": {
+    "latitude": 41.6639204,
+    "longitude": -83.522477
+  },
+  "3041 ontario st, oh 43611": {
+    "latitude": 41.3669914,
+    "longitude": -83.657445
+  },
+  "3144 n. ontario st, oh 43611": {
+    "latitude": 41.68296,
+    "longitude": -83.4965729
+  },
+  "3353 chestnut st, oh 43608": {
+    "latitude": 41.6846739,
+    "longitude": -83.5343794
+  },
+  "464 5th st , oh 43605": {
+    "latitude": 41.5905977,
+    "longitude": -83.5201293
+  },
+  "2307-2309 waterworks dr, oh 43609": {
+    "latitude": 41.6236097,
+    "longitude": -83.5688066
+  },
+  "1820 marne ave, oh 43613": {
+    "latitude": 41.6818985,
+    "longitude": -83.5874152
+  },
+  "2807 benford ln, oh 44505": {
+    "latitude": 41.130073,
+    "longitude": -80.5747732
+  },
+  "2408 broadway st , oh 43609": {
+    "latitude": 41.5354961,
+    "longitude": -83.5652825
+  },
+  "729 lodge ave, oh 43609": {
+    "latitude": 41.6269899,
+    "longitude": -83.5802136
+  },
+  "new cheney flats - common, oh": {
+    "latitude": 40.25034,
+    "longitude": -83.00018
+  },
+  "1449 n superior st, oh 43604": {
+    "latitude": 41.6615093,
+    "longitude": -83.5195477
+  }
+}

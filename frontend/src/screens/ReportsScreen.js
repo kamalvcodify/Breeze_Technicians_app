@@ -14,11 +14,16 @@ import styles from '../styles/ReportsScreen.styles';
  * pattern as Home's Services grid. Each card opens
  * ReportListScreen with a different reportKey.
  *
- * FIX: isAdmin now read from useAuth() and passed to
- * TechnicianLayout - previously this was omitted entirely, so the
- * header always defaulted to the technician nav (Home/My Assigned
- * Work Orders/Start Shift) regardless of who was actually logged
- * in, even for an admin.
+ * FIX (grid collapse at narrow widths): each card is now wrapped in
+ * a `cardWrap` View that owns the 50% column width and the gutter
+ * (via padding, not margin) - see ReportsScreen.styles.js for why.
+ * `card` itself no longer carries any width/margin, only visuals.
+ *
+ * isAdmin read from useAuth() and passed to TechnicianLayout -
+ * previously this was omitted entirely, so the header always
+ * defaulted to the technician nav (Home/My Assigned Work Orders/
+ * Start Shift) regardless of who was actually logged in, even for
+ * an admin.
  * ----------------------------------------------------------------
  */
 const REPORTS = [
@@ -54,8 +59,22 @@ const REPORTS = [
   },
 ];
 
+// NEW - Admin-only. Sourced from the local AppFolio-synced store,
+// not Zoho. Shows EVERY work order regardless of status - Admin
+// applies their own status filter on the list screen itself.
+const ADMIN_ONLY_REPORTS = [
+  {
+    key: 'appFolioWorkOrders',
+    icon: 'construct-outline',
+    title: 'AppFolio Work Orders',
+    description: 'All work orders synced from AppFolio, with status filtering.',
+  },
+];
+
 export default function ReportsScreen({ navigation }) {
   const { isAdmin } = useAuth();
+
+  const visibleReports = isAdmin ? [...REPORTS, ...ADMIN_ONLY_REPORTS] : REPORTS;
 
   return (
     <TechnicianLayout navigation={navigation} activeRoute="Reports" isAdmin={isAdmin}>
@@ -77,27 +96,28 @@ export default function ReportsScreen({ navigation }) {
 
         <View style={styles.content}>
           <View style={styles.grid}>
-            {REPORTS.map((item) => (
-              <TouchableOpacity
-                key={item.key}
-                style={styles.card}
-                onPress={() => navigation.navigate('ReportList', { reportKey: item.key, title: item.title })}
-                activeOpacity={0.82}
-              >
-                <View style={styles.cardIconBadge}>
-                  <Ionicons name={item.icon} size={18} color={colors.blue} />
-                </View>
+            {visibleReports.map((item) => (
+              <View key={item.key} style={styles.cardWrap}>
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => navigation.navigate('ReportList', { reportKey: item.key, title: item.title })}
+                  activeOpacity={0.82}
+                >
+                  <View style={styles.cardIconBadge}>
+                    <Ionicons name={item.icon} size={18} color={colors.blue} />
+                  </View>
 
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardDescription} numberOfLines={2}>
-                  {item.description}
-                </Text>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardDescription} numberOfLines={2}>
+                    {item.description}
+                  </Text>
 
-                <View style={styles.openRow}>
-                  <Text style={styles.openText}>Open</Text>
-                  <Ionicons name="arrow-forward" size={13} color={colors.blue} />
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.openRow}>
+                    <Text style={styles.openText}>Open</Text>
+                    <Ionicons name="arrow-forward" size={13} color={colors.blue} />
+                  </View>
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         </View>

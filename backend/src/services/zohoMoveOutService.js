@@ -1,380 +1,197 @@
+const axios = require("axios");
 const FormData = require("form-data");
-
 const config = require("../config/env");
+const { getAccessToken } = require("./zohoAuthService");
 
-const { creatorRequest, creatorUploadFile } = require("./zohoCreatorService");
+/**
+ * services/zohoMoveOutService.js
+ * ----------------------------------------------------------------
+ * REWRITTEN - Process a Move Out now syncs to Zoho CRM's
+ * "Process_a_Move_Out" module instead of Zoho Creator. Single-entry
+ * form (no ticket loop) - one submission creates exactly one CRM
+ * record, matching Rent Ready Checklist and Check In/Out's shape.
+ *
+ * Field mapping confirmed against a real sample CRM record:
+ *   - Property/Unit are genuine Lookup fields - the real CRM record
+ *     IDs already carried on the entry are used directly.
+ *   - There is NO dedicated Technician Name field on this module -
+ *     per instructions, the technician's name is mapped onto the
+ *     record's own Name field instead (same approach already used
+ *     for Check In/Out's mandatory Name field).
+ *   - Date_of_inspection (note: lowercase "of") is a plain Date
+ *     field, format "yyyy-MM-dd" (confirmed from sample data,
+ *     "2026-08-20").
+ *   - Status holds values like "Pass" - the CRM equivalent of the
+ *     old Creator form's "Final Status".
+ *   - Details is Notes, matching the same naming convention already
+ *     used on Check_In_log.
+ *
+ * ATTACHMENTS: uses Zoho CRM's standard per-record Attachments API,
+ * same mechanism as zohoCrmInvoiceService.js (POST
+ * /crm/v2/{module}/{recordId}/Attachments) - duplicated here in a
+ * small, self-contained form rather than importing that file
+ * directly, since it's hardcoded to the Invoice1 module. If a 3rd
+ * form needs this same upload logic, that would be the moment to
+ * factor it out into a shared, module-agnostic helper.
+ * ----------------------------------------------------------------
+ */
 
-function setField(data, fieldName, value) {
-  if (!fieldName || value === undefined || value === null || value === "") {
-    return;
-  }
+const CRM_BASE_URL = "https://www.zohoapis.com/crm/v2";
 
-  data[fieldName] = value;
+async function crmRequest(method, path, { params, data, headers } = {}) {
+  const accessToken = await getAccessToken();
+
+  const response = await axios({
+    method,
+    url: `${CRM_BASE_URL}${path}`,
+    params,
+    data,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+      ...(headers || { "Content-Type": "application/json" }),
+    },
+    validateStatus: (status) => status === 204 || (status >= 200 && status < 300),
+  });
+
+  return response.status === 204 ? { data: [] } : response.data;
 }
 
-function formatCreatorDate(value) {
+const MODULE = () => config.zoho.crmMoveOut.module;
+const FIELDS = () => config.zoho.crmMoveOut.fields;
+
+function formatCrmDate(value) {
   if (!value) {
     return "";
   }
 
-  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (!match) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return value;
   }
 
-  const [, year, month, day] = match;
+  const date = value instanceof Date ? value : new Date(value);
 
-  return `${month}/${day}/${year}`;
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function buildCrmPayload(entry) {
+  const fields = FIELDS();
+
+  const data = {
+    // Per instructions: no dedicated Technician Name field exists
+    // on this module - mapped onto Name instead.
+    Name: entry.technicianName,
+    [fields.email]: entry.email,
+    [fields.status]: entry.finalStatus,
+    [fields.notes]: entry.notes,
+  };
+
+  if (entry.dateOfInspection) {
+    data[fields.dateOfInspection] = formatCrmDate(entry.dateOfInspection);
+  }
+
+  if (entry.property) {
+    data[fields.property] = { id: entry.property };
+  }
+
+  if (entry.unit) {
+    data[fields.unit] = { id: entry.unit };
+  }
+
+  return data;
 }
 
-function addMoveOutFields(data, entry, fieldConfig) {
-  setField(data, fieldConfig.technicianName, entry.technicianName);
+async function createRecord(data) {
+  const result = await crmRequest("post", `/${MODULE()}`, {
+    data: { data: [data] },
+  });
 
-  setField(data, fieldConfig.property, entry.property);
+  const entry = result?.data?.[0];
+  const success = entry?.code === "SUCCESS";
 
-  setField(data, fieldConfig.email, entry.email);
-
-  setField(data, fieldConfig.unit, entry.unitName);
-
-  setField(data, fieldConfig.finalStatus, entry.finalStatus);
-
-  setField(
-    data,
-    fieldConfig.dateOfInspection,
-    formatCreatorDate(entry.dateOfInspection),
-  );
-
-  setField(data, fieldConfig.notes, entry.notes);
-
-  if (
-    Array.isArray(entry.attachments) &&
-    entry.attachments.length > 0 &&
-    fieldConfig.attachmentsSubform &&
-    fieldConfig.attachmentSequenceField
-  ) {
-    data[fieldConfig.attachmentsSubform] = entry.attachments.map(
-      (_, index) => ({
-        [fieldConfig.attachmentSequenceField]: String(index + 1),
-      }),
+  if (!success) {
+    console.error(
+      "[Process a Move Out] Zoho CRM rejected the record - full response:",
+      JSON.stringify(entry, null, 2)
     );
   }
-}
-
-function buildCreatorPayload(entry) {
-  const moveOutConfig = config.zoho.moveOut;
-
-  const data = {};
-
-  addMoveOutFields(data, entry, moveOutConfig.fields);
 
   return {
-    data,
+    success,
+    recordId: entry?.details?.id || null,
+    rejectionReason: success ? null : entry?.message || "Unknown Zoho error",
   };
 }
 
-function validateZohoResponse(zohoResponse) {
-  if (!zohoResponse) {
-    const error = new Error("Zoho Creator returned an empty response.");
+async function uploadAttachmentToRecord(recordId, attachment) {
+  const formData = new FormData();
 
-    error.statusCode = 502;
+  formData.append("file", attachment.buffer, {
+    filename: attachment.originalName || "photo.jpg",
+    contentType: attachment.mimeType || "image/jpeg",
+  });
 
-    throw error;
-  }
-
-  if (Number(zohoResponse.code) !== 3000) {
-    const messages = Array.isArray(zohoResponse.error)
-      ? zohoResponse.error
-      : [zohoResponse.message || "Unknown Zoho Creator error."];
-
-    const error = new Error(messages.join(", "));
-
-    error.statusCode = 400;
-    error.zohoResponse = zohoResponse;
-
-    throw error;
-  }
-}
-
-function extractRecordId(zohoResponse) {
-  if (Array.isArray(zohoResponse?.data)) {
-    return (
-      zohoResponse.data[0]?.ID ||
-      zohoResponse.data[0]?.id ||
-      zohoResponse.data[0]?.details?.id ||
-      null
-    );
-  }
-
-  return (
-    zohoResponse?.data?.ID ||
-    zohoResponse?.data?.id ||
-    zohoResponse?.data?.details?.id ||
-    zohoResponse?.details?.id ||
-    null
-  );
-}
-
-async function fetchRecordWithRetry({ reportLinkName, recordId, subformKey }) {
-  const delaysMs = [800, 1500, 2500];
-
-  for (let attempt = 0; attempt < delaysMs.length; attempt += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    await wait(delaysMs[attempt]);
-
-    // eslint-disable-next-line no-await-in-loop
-    const recordResponse = await creatorRequest(
-      "get",
-      `/report/${reportLinkName}/${recordId}`,
-    );
-
-    const fetchedRecord = recordResponse?.data;
-
-    console.log(
-      `[Process Move Out] Re-fetch attempt ${attempt + 1}/${delaysMs.length} for record ${recordId} - subform data:`,
-      JSON.stringify({ [subformKey]: fetchedRecord?.[subformKey] }, null, 2),
-    );
-
-    const rows = fetchedRecord?.[subformKey];
-
-    const hasPopulatedSequence =
-      Array.isArray(rows) &&
-      rows.some(
-        (row) =>
-          row &&
-          Object.values(row).some(
-            (value) =>
-              value !== "" && value !== undefined && typeof value !== "object",
-          ),
-      );
-
-    if (hasPopulatedSequence || attempt === delaysMs.length - 1) {
-      return fetchedRecord;
-    }
-  }
-
-  return null;
-}
-
-/**
- * uploadMoveOutAttachments
- * ----------------------------------------------------------------
- * NEW: now also tracks failedFileNames - used to build a specific
- * "failed to upload: X.jpg, Y.jpg" message instead of just a
- * count.
- * ----------------------------------------------------------------
- */
-async function uploadMoveOutAttachments({ recordId, entry }) {
-  const moveOutConfig = config.zoho.moveOut;
-  const fieldConfig = moveOutConfig.fields;
-
-  if (!Array.isArray(entry.attachments) || entry.attachments.length === 0) {
-    return { uploaded: 0, failed: 0, errors: [], failedFileNames: [] };
-  }
-
-  const attachmentReportLinkName = config.zoho.reports.moveOut;
-
-  let fetchedRecord;
-
-  try {
-    fetchedRecord = await fetchRecordWithRetry({
-      reportLinkName: attachmentReportLinkName,
-      recordId,
-      subformKey: fieldConfig.attachmentsSubform,
-    });
-  } catch (error) {
-    const failedFileNames = entry.attachments.map(
-      (attachment, index) =>
-        attachment.originalName || `photo-${index + 1}.jpg`,
-    );
-
-    return {
-      uploaded: 0,
-      failed: failedFileNames.length,
-      errors: [
-        `Could not re-fetch the created record to upload images: ${error.message}`,
-      ],
-      failedFileNames,
-    };
-  }
-
-  const subformRows = fetchedRecord?.[fieldConfig.attachmentsSubform];
-
-  if (!Array.isArray(subformRows)) {
-    const failedFileNames = entry.attachments.map(
-      (attachment, index) =>
-        attachment.originalName || `photo-${index + 1}.jpg`,
-    );
-
-    return {
-      uploaded: 0,
-      failed: failedFileNames.length,
-      errors: [
-        `No subform rows found for ${fieldConfig.attachmentsSubform} on record ${recordId}.`,
-      ],
-      failedFileNames,
-    };
-  }
-
-  let uploaded = 0;
-  const errors = [];
-  const failedFileNames = [];
-
-  for (let index = 0; index < entry.attachments.length; index += 1) {
-    const attachment = entry.attachments[index];
-    const expectedSequence = String(index + 1);
-    const fileName = attachment.originalName || `photo-${expectedSequence}.jpg`;
-
-    const matchingRow = subformRows.find(
-      (row) =>
-        String(row[fieldConfig.attachmentSequenceField]) === expectedSequence,
-    );
-
-    if (!matchingRow) {
-      failedFileNames.push(fileName);
-
-      errors.push(
-        `Could not find a matching subform row for sequence ${expectedSequence} (${fileName}) in ${fieldConfig.attachmentsSubform}.`,
-      );
-      continue;
-    }
-
-    try {
-      const formData = new FormData();
-
-      formData.append("file", attachment.buffer, {
-        filename: fileName,
-        contentType: attachment.mimeType || "image/jpeg",
-      });
-
-      await creatorUploadFile(
-        `/report/${attachmentReportLinkName}/${recordId}/${fieldConfig.attachmentsSubform}.${fieldConfig.attachmentField}/${matchingRow.ID}/upload`,
-        formData,
-      );
-
-      uploaded += 1;
-    } catch (error) {
-      failedFileNames.push(fileName);
-
-      errors.push(
-        `Failed to upload ${fileName}: ${error?.response?.data?.message || error.message}`,
-      );
-    }
-  }
-
-  return { uploaded, failed: failedFileNames.length, errors, failedFileNames };
-}
-
-/**
- * markAttachmentSyncComplete
- * ----------------------------------------------------------------
- * Same rules as the other two forms. Move Out is single-entry, so
- * there's no "aggregate across tickets" nuance - it's just this
- * record had attachments or it didn't.
- * ----------------------------------------------------------------
- */
-async function markAttachmentSyncComplete({ recordId, reportLinkName }) {
-  try {
-    await creatorRequest("patch", `/report/${reportLinkName}/${recordId}`, {
-      data: {
-        data: {
-          [config.zoho.attachmentSyncField]: true,
-        },
-      },
-    });
-
-    return true;
-  } catch (error) {
-    console.error(
-      "[Process Move Out] Failed to set Attachment_Sync:",
-      error?.response?.data || error.message,
-    );
-
-    return false;
-  }
+  await crmRequest("post", `/${MODULE()}/${recordId}/Attachments`, {
+    data: formData,
+    headers: formData.getHeaders(),
+  });
 }
 
 async function createMoveOutEntry({ entry }) {
-  const moveOutConfig = config.zoho.moveOut;
+  const payload = buildCrmPayload(entry);
 
-  if (!moveOutConfig.formLinkName) {
-    const error = new Error("Zoho Move Out form link name is not configured.");
+  console.log(
+    "[Process a Move Out] Syncing to Zoho CRM Process_a_Move_Out:",
+    JSON.stringify(payload, null, 2)
+  );
 
-    error.statusCode = 500;
+  const created = await createRecord(payload);
 
+  if (!created.success) {
+    const error = new Error(created.rejectionReason || "Zoho CRM rejected the record.");
+    error.statusCode = 502;
     throw error;
   }
 
-  const payload = buildCreatorPayload(entry);
+  const attachments = entry.attachments || [];
+  let uploaded = 0;
+  const failedFileNames = [];
 
-  console.log(
-    "[Process Move Out] Payload sent to Zoho:",
-    JSON.stringify(payload, null, 2),
-  );
+  for (const attachment of attachments) {
+    const fileName = attachment.originalName || "photo.jpg";
 
-  const zohoResponse = await creatorRequest(
-    "post",
-    `/form/${moveOutConfig.formLinkName}`,
-    {
-      data: payload,
-    },
-  );
-
-  validateZohoResponse(zohoResponse);
-
-  const recordId = extractRecordId(zohoResponse);
-
-  const attachmentCount = (entry.attachments || []).length;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await uploadAttachmentToRecord(created.recordId, attachment);
+      uploaded += 1;
+    } catch (error) {
+      console.error(
+        `[Process a Move Out] Failed to upload ${fileName} to record ${created.recordId}:`,
+        error?.response?.data || error.message
+      );
+      failedFileNames.push(fileName);
+    }
+  }
 
   let attachmentUploadStatus = "No attachments supplied.";
-  let attachmentUploadResult = {
-    uploaded: 0,
-    failed: 0,
-    errors: [],
-    failedFileNames: [],
-  };
-  let attachmentSyncUpdated = false;
 
-  if (attachmentCount > 0) {
-    attachmentUploadResult = await uploadMoveOutAttachments({
-      recordId,
-      entry,
-    });
-
+  if (attachments.length > 0) {
     attachmentUploadStatus =
-      attachmentUploadResult.failed === 0
-        ? `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded successfully.`
-        : `${attachmentUploadResult.uploaded} of ${attachmentCount} image(s) uploaded. Failed to upload: ${attachmentUploadResult.failedFileNames.join(", ")}.`;
-
-    if (attachmentUploadResult.errors.length > 0) {
-      console.error(
-        "[Process Move Out] Attachment upload errors:",
-        attachmentUploadResult.errors,
-      );
-    }
-
-    // Same 8-second delay as Work Order/Rehab Order - gives Zoho
-    // time to settle the just-uploaded image before the
-    // Attachment_Sync update fires, which the attached workflow
-    // needs to see reliably.
-    await wait(2000);
-
-    attachmentSyncUpdated = await markAttachmentSyncComplete({
-      recordId,
-      reportLinkName: config.zoho.reports.moveOut,
-    });
+      failedFileNames.length === 0
+        ? `${uploaded} of ${attachments.length} image(s) uploaded successfully.`
+        : `${uploaded} of ${attachments.length} image(s) uploaded. Failed to upload: ${failedFileNames.join(", ")}.`;
   }
 
   return {
-    recordId,
-    zohoResponse,
+    recordId: created.recordId,
+    detail: "The move-out checklist was submitted successfully.",
     attachmentUploadStatus,
-    attachmentUploadResult,
-    attachmentSyncUpdated,
   };
 }
 

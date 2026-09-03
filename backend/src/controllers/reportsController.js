@@ -5,16 +5,19 @@ const zohoReportService = require(
 /**
  * controllers/reportsController.js
  * ----------------------------------------------------------------
- * getReport handles all 5 reports.
+ * getReport handles all 5 reports - reportKey comes from the route
+ * param, isAdmin from the JWT (req.user.isAdmin).
  *
- * FIX: getReportImage now accepts 5 structured query params
- * (reportLinkName, recordId, subformName, fieldName,
- * subformRecordId) instead of a single raw "path" string - the raw
- * string from Zoho's Image field turned out not to be a working
- * download path. These 5 pieces are exactly what
- * zohoReportService.js already includes per-image in each report
- * response (row.groups[].images[]), and match Zoho's documented
- * Download File from Subform API shape.
+ * FIX: getReportImage now validates by ref.source ("crm" or
+ * "creator") instead of hard-requiring the old 5-field
+ * Creator-only shape - Work Order, Rehab Order, Check In/Out, and
+ * Rent Ready Checklist now send CRM-shaped refs (source, module,
+ * recordId, attachmentId), while Move Out (unchanged) still sends
+ * the original Creator-shaped ref (reportLinkName, recordId,
+ * subformName, fieldName, subformRecordId). The whole query object
+ * is passed straight through to fetchImageAsDataUri(), which
+ * branches on source itself - no need to duplicate that validation
+ * here.
  * ----------------------------------------------------------------
  */
 async function getReport(req, res) {
@@ -30,22 +33,15 @@ async function getReport(req, res) {
 }
 
 async function getReportImage(req, res) {
-  const { reportLinkName, recordId, subformName, fieldName, subformRecordId } = req.query;
+  const ref = req.query || {};
 
-  if (!reportLinkName || !recordId || !subformName || !fieldName || !subformRecordId) {
+  if (!ref.source) {
     return res.status(400).json({
-      detail:
-        "reportLinkName, recordId, subformName, fieldName, and subformRecordId are all required.",
+      detail: "The 'source' query parameter ('crm' or 'creator') is required.",
     });
   }
 
-  const dataUri = await zohoReportService.fetchImageAsDataUri({
-    reportLinkName,
-    recordId,
-    subformName,
-    fieldName,
-    subformRecordId,
-  });
+  const dataUri = await zohoReportService.fetchImageAsDataUri(ref);
 
   return res.status(200).json({ dataUri });
 }

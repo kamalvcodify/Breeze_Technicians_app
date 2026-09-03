@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import AssignedWorkOrderCard from '../components/AssignedWorkOrderCard';
 import TechnicianLayout from '../components/TechnicianLayout';
@@ -33,8 +34,19 @@ import styles from '../styles/myAssignedWorkOrdersStyles';
  * greeting bar (light surface, border-bottom, one small title line
  * + one small subtitle line, small icon badge on the right). The
  * FlatList itself now only contains the cards.
+ *
+ * NEW: refetch-on-focus - reloads whenever this screen becomes
+ * focused (not just on first mount), via useFocusEffect - same
+ * reasoning as ReportListScreen.js's identical addition: the
+ * backend's local AppFolio-synced store updates in the background
+ * (every 5 min, plus a daily full reconciliation for deletions), so
+ * without this, a technician would only ever see stale data unless
+ * they manually pulled to refresh. Pull-to-refresh (RefreshControl)
+ * is kept too, for an explicit manual refresh option.
  * ----------------------------------------------------------------
  */
+const AUTO_REFRESH_INTERVAL_MS = 10 * 1000;
+
 const MyAssignedWorkOrdersScreen = ({ navigation }) => {
   const [workOrders, setWorkOrders] = useState([]);
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState(null);
@@ -64,6 +76,28 @@ const MyAssignedWorkOrdersScreen = ({ navigation }) => {
 
   useEffect(() => {
     loadWorkOrders();
+  }, [loadWorkOrders]);
+
+  // Refetch every time this screen regains focus - e.g. coming back
+  // from the Technician Shift screen - so recently created/updated/
+  // completed work orders reflect correctly without a manual pull.
+  useFocusEffect(
+    useCallback(() => {
+      loadWorkOrders({ showLoading: false });
+    }, [loadWorkOrders]),
+  );
+
+  // NEW - ALSO refetch periodically while the screen stays mounted,
+  // so simply leaving it open (never navigating away/back at all)
+  // still picks up backend changes within AUTO_REFRESH_INTERVAL_MS,
+  // rather than only ever showing the very first load. Same reasoning
+  // as ReportListScreen.js's identical addition.
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadWorkOrders({ showLoading: false });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
   }, [loadWorkOrders]);
 
   const handleRefresh = useCallback(() => {

@@ -128,10 +128,27 @@ async function updateUserPassword(recordId, newPasswordHash) {
   return result;
 }
 
+/**
+ * deleteUser
+ * ----------------------------------------------------------------
+ * PERMANENTLY removes the record from Zoho Creator's Users_Report.
+ * Irreversible - the frontend must confirm with the admin before
+ * calling this.
+ * ----------------------------------------------------------------
+ */
+async function deleteUser(recordId) {
+  const result = await zohoRequest(
+    "delete",
+    `/report/${usersReportLinkName}/${recordId}`
+  );
+  return result;
+}
+
 module.exports = {
   findUserByEmail,
   listUsers,
   createUser,
   updateUserPassword,
   updateUserTermsAccepted,
+  deleteUser,
 };

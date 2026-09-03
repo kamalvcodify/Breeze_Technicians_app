@@ -8,6 +8,8 @@ import {
   Switch,
   FlatList,
   RefreshControl,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,7 +18,11 @@ import AppSelect from '../components/AppSelect';
 import AppButton from '../components/AppButton';
 import TechnicianLayout from '../components/TechnicianLayout';
 
-import { addUser, listUsers } from '../api/admin';
+import {
+  addUser,
+  listUsers,
+  deleteUser,
+} from '../api/admin';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import { CITY_OPTIONS } from '../constants/cityOptions';
@@ -120,6 +126,53 @@ export default function AdminPanelScreen({ navigation }) {
     }
   };
 
+  const [actionError, setActionError] = useState('');
+
+  /**
+   * Delete confirmation - FIX: Alert.alert does not reliably show a
+   * working confirm dialog on React Native Web (no real native
+   * dialog to fall back to on some setups), which is why Delete
+   * previously appeared to do nothing at all. Replaced with a real
+   * custom Modal, matching the pattern already used elsewhere in
+   * this app.
+   */
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleRequestDelete = (user) => {
+    setActionError('');
+    setDeleteTarget(user);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      await deleteUser(deleteTarget.id);
+
+      // Optimistic update - remove immediately on success rather
+      // than waiting on a fresh fetchUsers() re-fetch, which could
+      // still show stale data due to Zoho's own eventual-consistency
+      // lag after a write.
+      setUsers((current) => current.filter((existing) => existing.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      const message = err?.response?.data?.detail || 'Could not delete this user. Please try again.';
+      setActionError(message);
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <TechnicianLayout navigation={navigation} isAdmin>
       <View style={styles.headerBar}>
@@ -218,6 +271,13 @@ export default function AdminPanelScreen({ navigation }) {
                 <Text style={styles.cardTitle}>Existing users</Text>
               </View>
 
+              {!!actionError && (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle" size={16} color={colors.error} />
+                  <Text style={styles.errorText}>{actionError}</Text>
+                </View>
+              )}
+
               {loadingUsers ? (
                 <Text style={styles.emptyStateText}>Loading users…</Text>
               ) : users.length === 0 ? (
@@ -248,6 +308,19 @@ export default function AdminPanelScreen({ navigation }) {
                         />
                         <Text style={styles.badgeText}>{item.isAdmin ? 'Admin' : 'Technician'}</Text>
                       </View>
+
+                      <View style={styles.userActionsRow}>
+                        <TouchableOpacity
+                          style={styles.userActionButton}
+                          onPress={() => handleRequestDelete(item)}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={colors.error} />
+                          <Text style={[styles.userActionButtonText, styles.userActionButtonTextDanger]}>
+                            Delete
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                 />
@@ -256,6 +329,47 @@ export default function AdminPanelScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* NEW - real confirm modal, replacing Alert.alert (which
+          does not reliably work on React Native Web). */}
+      <Modal
+        visible={!!deleteTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Delete user?</Text>
+            <Text style={styles.confirmMessage}>
+              This will permanently remove{' '}
+              {deleteTarget?.name || deleteTarget?.email} from Zoho. This cannot be undone.
+            </Text>
+
+            <View style={styles.confirmButtonRow}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmButtonCancel]}
+                onPress={handleCancelDelete}
+                disabled={deleting}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmButtonDelete]}
+                onPress={handleConfirmDelete}
+                disabled={deleting}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmButtonDeleteText}>
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </TechnicianLayout>
   );
 }

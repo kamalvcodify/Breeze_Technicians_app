@@ -1,402 +1,168 @@
-const config = require(
-  '../config/env'
-);
-
-const {
-  creatorRequest,
-} = require(
-  './zohoCreatorService'
-);
+const axios = require("axios");
+const config = require("../config/env");
+const { getAccessToken } = require("./zohoAuthService");
 
 /**
  * services/zohoCheckInOutService.js
  * ----------------------------------------------------------------
- * Mirrors zohoWorkOrderService.js / zohoRehabOrderService.js's
- * structure and helpers, but single-entry (no T1/T2/T3 repeat
- * pattern) since this form only ever submits one record at a time.
+ * REWRITTEN - Check In / Check Out Inventory now syncs to Zoho
+ * CRM's "Check_In_log" module instead of Zoho Creator. Single-entry
+ * form (no ticket loop) - one submission creates exactly one CRM
+ * record.
  *
- * FIX: Rehab Unit is now wired up - sends entry.rehabUnitName (the
- * display NAME), not entry.rehabUnit (the lookup ID). Was
- * previously fully commented out.
+ * Field mapping confirmed against real sample CRM records:
+ *   - Property is a genuine Lookup field - the real CRM record ID
+ *     already carried on the entry (entry.property, the same ID
+ *     already populating the Property search-select dropdown) is
+ *     used directly.
+ *   - Rehab_Unit is confirmed PLAIN TEXT (not a Lookup, unlike
+ *     Property) - entry.rehabUnitName (the form's "Rehab Unit"
+ *     display name) is sent here; entry.rehabUnit (the real CRM ID)
+ *     goes to the separate Unit Lookup field instead.
+ *   - Parts_Inventory IS a genuine Lookup field - entry
+ *     .partsInventory is expected to already be a real CRM record
+ *     ID, same pattern as Property.
+ *   - Checkin_For ("Rehab"/"Work Order") doubles as both the form's
+ *     "Job Type" selector value AND the discriminator distinguishing
+ *     which context this check-in relates to - confirmed to be a
+ *     single field, not two separate ones.
+ *   - Name IS a mandatory field on this module (confirmed via a
+ *     real MANDATORY_NOT_FOUND rejection) - set to the technician's
+ *     name. This corrects an earlier assumption based on sample
+ *     data alone (which happened to show auto-numbers in those
+ *     particular records) - the field itself still requires input.
  * ----------------------------------------------------------------
  */
 
-function setField(
-  data,
-  fieldName,
-  value
-) {
-  if (
-    !fieldName ||
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
-    return;
-  }
+const CRM_BASE_URL = "https://www.zohoapis.com/crm/v2";
 
-  data[fieldName] = value;
+async function crmRequest(method, path, { params, data } = {}) {
+  const accessToken = await getAccessToken();
+
+  const response = await axios({
+    method,
+    url: `${CRM_BASE_URL}${path}`,
+    params,
+    data,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    validateStatus: (status) => status === 204 || (status >= 200 && status < 300),
+  });
+
+  return response.status === 204 ? { data: [] } : response.data;
 }
 
-function formatCreatorDate(
-  value
-) {
-  if (!value) {
-    return '';
-  }
-
-  const match =
-    String(value).match(
-      /^(\d{4})-(\d{2})-(\d{2})$/
-    );
-
-  if (!match) {
-    return value;
-  }
-
-  const [, year, month, day] =
-    match;
-
-  return `${month}/${day}/${year}`;
-}
-
-function formatCreatorTime(
-  value
-) {
-  if (!value) {
-    return '';
-  }
-
-  const cleanValue =
-    String(value).trim();
-
-  if (
-    /am|pm/i.test(cleanValue)
-  ) {
-    return cleanValue.toLowerCase();
-  }
-
-  const match =
-    cleanValue.match(
-      /^(\d{1,2}):(\d{2})$/
-    );
-
-  if (!match) {
-    return cleanValue;
-  }
-
-  let hour =
-    Number(match[1]);
-
-  const minute =
-    match[2];
-
-  const meridiem =
-    hour >= 12
-      ? 'pm'
-      : 'am';
-
-  hour %= 12;
-
-  if (hour === 0) {
-    hour = 12;
-  }
-
-  return `${hour}:${minute} ${meridiem}`;
-}
+const MODULE = () => config.zoho.crmCheckInOut.module;
+const FIELDS = () => config.zoho.crmCheckInOut.fields;
 
 /**
- * The frontend sends a single combined ISO datetime string (from
- * DateTimeCombinedField.js) - split it into a date part and a time
- * part, then format each with the same helpers used elsewhere, and
- * join them the way Zoho Creator expects a DateTime field's value
- * ("MM/DD/YYYY hh:mm am/pm").
+ * Zoho CRM DateTime fields need a clean ISO string with no
+ * milliseconds - same fix already confirmed necessary for
+ * Task_Tracking/Location_Logs and Rent_Ready_Checklist earlier
+ * tonight.
  */
-function formatCreatorDateTime(
-  isoValue
-) {
+function toZohoDateTime(isoValue) {
   if (!isoValue) {
-    return '';
+    return "";
   }
 
-  const dateObject =
-    new Date(isoValue);
+  const date = new Date(isoValue);
 
-  if (
-    Number.isNaN(
-      dateObject.getTime()
-    )
-  ) {
-    return '';
+  if (Number.isNaN(date.getTime())) {
+    return "";
   }
 
-  const datePart =
-    formatCreatorDate(
-      `${dateObject.getFullYear()}-` +
-      `${String(
-        dateObject.getMonth() + 1
-      ).padStart(2, '0')}-` +
-      `${String(
-        dateObject.getDate()
-      ).padStart(2, '0')}`
-    );
-
-  const timePart =
-    formatCreatorTime(
-      `${String(
-        dateObject.getHours()
-      ).padStart(2, '0')}:` +
-      `${String(
-        dateObject.getMinutes()
-      ).padStart(2, '0')}`
-    );
-
-  return `${datePart} ${timePart}`;
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-function addCheckInOutFields(
-  data,
-  entry,
-  fieldConfig
-) {
-//   setField(
-//     data,
-//     fieldConfig.qrScan,
-//     entry.qrScanValue
-//   );
+function buildCrmPayload(entry) {
+  const fields = FIELDS();
 
-  setField(
-    data,
-    fieldConfig.technicianName,
-    entry.technicianName
-  );
-
-  setField(
-    data,
-    fieldConfig.property,
-    entry.property
-  );
-
-  /*
-   * FIX: Rehab Unit is now wired up - sends entry.rehabUnitName
-   * (the display NAME, not the lookup ID) since Zoho's Unit field
-   * expects text, same pattern as every other form.
-   */
-  setField(
-    data,
-    fieldConfig.unit,
-    entry.rehabUnitName
-  );
-
-  setField(
-    data,
-    fieldConfig.workOrder,
-    entry.workOrder
-  );
-
-  setField(
-    data,
-    fieldConfig.dateTime,
-    formatCreatorDateTime(
-      entry.dateTime
-    )
-  );
-
-  setField(
-    data,
-    fieldConfig.notes,
-    entry.notes
-  );
-
-  setField(
-    data,
-    fieldConfig.email,
-    entry.email
-  );
-
-  setField(
-    data,
-    fieldConfig.jobType,
-    entry.jobType
-  );
-
-  setField(
-    data,
-    fieldConfig.city,
-    entry.city
-  );
-
-  setField(
-    data,
-    fieldConfig.action,
-    entry.action
-  );
-
-  setField(
-    data,
-    fieldConfig.quantityDesired,
-    entry.quantityDesired
-  );
-
-  setField(
-    data,
-    fieldConfig.quantityReturned,
-    entry.quantityReturned
-  );
-
-  setField(
-    data,
-    fieldConfig.partCode,
-    entry.partCode
-  );
-
-  setField(
-    data,
-    fieldConfig.partsInventory,
-    entry.partsInventory
-  );
-}
-
-function buildCreatorPayload(
-  entry
-) {
-  const checkInOutConfig =
-    config.zoho.checkInOut;
-
-  const data = {};
-
-  addCheckInOutFields(
-    data,
-    entry,
-    checkInOutConfig.fields
-  );
-
-  return {
-    data,
+  const data = {
+    // FIX: Name is a MANDATORY field on this module, confirmed via
+    // a real MANDATORY_NOT_FOUND rejection - set to the technician's
+    // name, per instructions.
+    Name: entry.technicianName,
+    [fields.technician]: entry.technicianName,
+    [fields.city]: entry.city,
+    // FIX: this form's controller normalizes to rehabUnit/
+    // rehabUnitName (NOT unit/unitName like every other form) -
+    // confirmed directly against checkInOutController.js and
+    // CheckInCheckOutScreen.js. Rehab_Unit is a plain TEXT field -
+    // needs the display NAME (entry.rehabUnitName). entry.rehabUnit
+    // (the ID) is a genuine Lookup reference and belongs on the
+    // separate Unit field instead - see below.
+    [fields.rehabUnit]: entry.rehabUnitName,
+    [fields.workOrder]: entry.workOrder,
+    [fields.email]: entry.email,
+    [fields.partCode]: entry.partCode,
+    [fields.notes]: entry.notes,
+    [fields.action]: entry.action,
+    [fields.checkinFor]: entry.jobType,
   };
+
+  if (entry.dateTime) {
+    data[fields.dateTime] = toZohoDateTime(entry.dateTime);
+  }
+
+  if (entry.property) {
+    data[fields.property] = { id: entry.property };
+  }
+
+  // NEW: Unit is a genuine Lookup field, separate from Rehab_Unit -
+  // uses the real CRM Unit ID (entry.rehabUnit), same pattern as
+  // Property.
+  if (entry.rehabUnit) {
+    data[fields.unit] = { id: entry.rehabUnit };
+  }
+
+  if (entry.partsInventory) {
+    data[fields.partsInventory] = { id: entry.partsInventory };
+  }
+
+  if (entry.quantityDesired !== undefined && entry.quantityDesired !== "") {
+    data[fields.quantityDesired] = Number(entry.quantityDesired);
+  }
+
+  if (entry.quantityReturned !== undefined && entry.quantityReturned !== "") {
+    data[fields.quantityReturned] = Number(entry.quantityReturned);
+  }
+
+  return data;
 }
 
-function validateZohoResponse(
-  zohoResponse
-) {
-  if (!zohoResponse) {
-    const error =
-      new Error(
-        'Zoho Creator returned an empty response.'
-      );
-
-    error.statusCode = 502;
-
-    throw error;
-  }
-
-  if (
-    Number(zohoResponse.code) !==
-    3000
-  ) {
-    const messages =
-      Array.isArray(
-        zohoResponse.error
-      )
-        ? zohoResponse.error
-        : [
-            zohoResponse.message ||
-            'Unknown Zoho Creator error.',
-          ];
-
-    const error =
-      new Error(
-        messages.join(', ')
-      );
-
-    error.statusCode = 400;
-    error.zohoResponse =
-      zohoResponse;
-
-    throw error;
-  }
-}
-
-function extractRecordId(
-  zohoResponse
-) {
-  if (
-    Array.isArray(
-      zohoResponse?.data
-    )
-  ) {
-    return (
-      zohoResponse.data[0]?.ID ||
-      zohoResponse.data[0]?.id ||
-      zohoResponse.data[0]
-        ?.details?.id ||
-      null
-    );
-  }
-
-  return (
-    zohoResponse?.data?.ID ||
-    zohoResponse?.data?.id ||
-    zohoResponse?.data
-      ?.details?.id ||
-    zohoResponse?.details?.id ||
-    null
-  );
-}
-
-async function createCheckInOutEntry({
-  entry,
-}) {
-  const checkInOutConfig =
-    config.zoho.checkInOut;
-
-  if (
-    !checkInOutConfig
-      .formLinkName
-  ) {
-    const error =
-      new Error(
-        'Zoho Check In/Check Out form link name is not configured.'
-      );
-
-    error.statusCode = 500;
-
-    throw error;
-  }
-
-  const payload =
-    buildCreatorPayload(entry);
+async function createCheckInOutEntry({ entry }) {
+  const payload = buildCrmPayload(entry);
 
   console.log(
-    '[Check In/Check Out] Payload sent to Zoho:',
-    JSON.stringify(
-      payload,
-      null,
-      2
-    )
+    "[Check In/Out] Syncing to Zoho CRM Check_In_log:",
+    JSON.stringify(payload, null, 2)
   );
 
-  const zohoResponse =
-    await creatorRequest(
-      'post',
-      `/form/${checkInOutConfig.formLinkName}`,
-      {
-        data: payload,
-      }
+  const result = await crmRequest("post", `/${MODULE()}`, {
+    data: { data: [payload] },
+  });
+
+  const responseEntry = result?.data?.[0];
+  const success = responseEntry?.code === "SUCCESS";
+
+  if (!success) {
+    console.error(
+      "[Check In/Out] Zoho CRM rejected the record - full response:",
+      JSON.stringify(responseEntry, null, 2)
     );
 
-  validateZohoResponse(
-    zohoResponse
-  );
-
-  const recordId =
-    extractRecordId(
-      zohoResponse
-    );
+    const error = new Error(responseEntry?.message || "Zoho CRM rejected the record.");
+    error.statusCode = 502;
+    error.zohoResponse = result;
+    throw error;
+  }
 
   return {
-    recordId,
-    zohoResponse,
+    recordId: responseEntry?.details?.id || null,
+    zohoResponse: result,
   };
 }
 

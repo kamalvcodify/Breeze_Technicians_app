@@ -170,6 +170,7 @@ const config = {
       name: required("ZOHO_FIELD_NAME", "User_Name"), // ← already there, don't touch
       city: required("ZOHO_FIELD_CITY", "City"), // ← already there, don't touch
       termsAccepted: required("ZOHO_FIELD_TERM_CONDITIONS", "Term_Conditions"), // ← ADD THIS LINE
+      isActive: required("ZOHO_FIELD_IS_ACTIVE", "Is_Active"),
     },
 
     autoEndShift: {
@@ -612,6 +613,282 @@ const config = {
     },
 
     /*
+     * Work Order / Rehab Order -> Zoho CRM (Invoice1 module).
+     *
+     * Both forms write to this SAME module, one record per TICKET
+     * (previously, Zoho Creator combined up to 3 tickets into ONE
+     * record - CRM does not). rehabForm ("Yes"/"No") is the only
+     * thing distinguishing which form a given record came from,
+     * since both share this module. See
+     * services/zohoCrmInvoiceService.js (shared engine),
+     * services/zohoWorkOrderService.js, services/
+     * zohoRehabOrderService.js.
+     */
+    crmInvoice: {
+      module: required("ZOHO_CRM_INVOICE_MODULE", "Invoice1"),
+
+      fields: {
+        name: required("ZOHO_CRM_INVOICE_FIELD_NAME", "Name"),
+        ticketId: required("ZOHO_CRM_INVOICE_FIELD_TICKET_ID", "Ticket_Id"),
+        jobType: required("ZOHO_CRM_INVOICE_FIELD_JOB_TYPE", "Job_type"),
+        unit: required("ZOHO_CRM_INVOICE_FIELD_UNIT", "Unit"),
+        unitName: required("ZOHO_CRM_INVOICE_FIELD_UNIT_NAME", "Unit_name"),
+        property: required("ZOHO_CRM_INVOICE_FIELD_PROPERTY", "Property"),
+        city: required("ZOHO_CRM_INVOICE_FIELD_CITY", "City"),
+        clockIn: required("ZOHO_CRM_INVOICE_FIELD_CLOCK_IN", "clockin"),
+        clockOut: required("ZOHO_CRM_INVOICE_FIELD_CLOCK_OUT", "clockout"),
+        status: required("ZOHO_CRM_INVOICE_FIELD_STATUS", "Status"),
+        techName: required("ZOHO_CRM_INVOICE_FIELD_TECH_NAME", "Tech_Name"),
+        workDetails: required(
+          "ZOHO_CRM_INVOICE_FIELD_WORK_DETAILS",
+          "Work_Details",
+        ),
+        date: required("ZOHO_CRM_INVOICE_FIELD_DATE", "Date"),
+        rehabForm: required(
+          "ZOHO_CRM_INVOICE_FIELD_REHAB_FORM",
+          "Rehab_Form",
+        ),
+      },
+    },
+
+    /*
+     * Rent Ready Checklist -> Zoho CRM (Rent_Ready_Checklist
+     * module). Confirmed against 2 real sample CRM records - see
+     * services/zohoRentReadyChecklistService.js.
+     */
+    crmRentReadyChecklist: {
+      module: required(
+        "ZOHO_CRM_RENT_READY_MODULE",
+        "Rent_Ready_Checklist",
+      ),
+
+      fields: {
+        property: required("ZOHO_CRM_RENT_READY_FIELD_PROPERTY", "Property"),
+        unit: required("ZOHO_CRM_RENT_READY_FIELD_UNIT", "Unit"),
+        email: required("ZOHO_CRM_RENT_READY_FIELD_EMAIL", "Email"),
+        techName: required(
+          "ZOHO_CRM_RENT_READY_FIELD_TECH_NAME",
+          "Tec_Name",
+        ),
+        dateTime: required(
+          "ZOHO_CRM_RENT_READY_FIELD_DATE_TIME",
+          "Date_Time_1",
+        ),
+        readyRent: required(
+          "ZOHO_CRM_RENT_READY_FIELD_READY_RENT",
+          "Ready_Rent",
+        ),
+      },
+
+      checklist: {
+        EXTERIOR_DEBRIS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_EXTERIOR_DEBRIS",
+          "Exterior_Free_of_debris_trash_and_personal_items",
+        ),
+        ENTRYWAY: required(
+          "ZOHO_CRM_RENT_READY_FIELD_ENTRYWAY",
+          "Entryway_Porch_balcony_swept_front_door_cleaned_do",
+        ),
+        MAILBOX: required(
+          "ZOHO_CRM_RENT_READY_FIELD_MAILBOX",
+          "Mailbox_Clean_intact_and_functional",
+        ),
+        LANDSCAPING: required(
+          "ZOHO_CRM_RENT_READY_FIELD_LANDSCAPING",
+          "Landscaping_Grass_cut_weeds_removed_bushes_trimmed",
+        ),
+        LIGHTING_EXTERIOR: required(
+          "ZOHO_CRM_RENT_READY_FIELD_LIGHTING_EXTERIOR",
+          "Lighting_All_exterior_lights_functional_bulbs_repl",
+        ),
+        WALLS_CEILINGS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_WALLS_CEILINGS",
+          "Walls_Ceilings_Cleaned_patched_and_painted_touched",
+        ),
+        WINDOWS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_WINDOWS",
+          "Windows_Cleaned_inside_and_out_blinds_curtains_fun",
+        ),
+        LIGHTING_ELECTRICAL: required(
+          "ZOHO_CRM_RENT_READY_FIELD_LIGHTING_ELECTRICAL",
+          "Lighting_Electrical_All_light_bulbs_working_outlet",
+        ),
+        FLOORING_GENERAL: required(
+          "ZOHO_CRM_RENT_READY_FIELD_FLOORING_GENERAL",
+          "Flooring_Carpet_professionally_cleaned_or_replaced",
+        ),
+        DOORS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_DOORS",
+          "Doors_All_doors_open_and_close_properly_locks_func",
+        ),
+        HVAC: required(
+          "ZOHO_CRM_RENT_READY_FIELD_HVAC",
+          "HVAC_Filter_replaced_air_vents_cleaned",
+        ),
+        REFRIGERATOR: required(
+          "ZOHO_CRM_RENT_READY_FIELD_REFRIGERATOR",
+          "Refrigerator_Cleaned_inside_outside_and_top_coils",
+        ),
+        STOVE_OVEN: required(
+          "ZOHO_CRM_RENT_READY_FIELD_STOVE_OVEN",
+          "Stove_Oven_Range_top_cleaned_oven_scrubbed_burners",
+        ),
+        DISHWASHER: required(
+          "ZOHO_CRM_RENT_READY_FIELD_DISHWASHER",
+          "Dishwasher_Cleaned_and_running_properly",
+        ),
+        MICROWAVE: required(
+          "ZOHO_CRM_RENT_READY_FIELD_MICROWAVE",
+          "Microwave_Cleaned_inside_and_outside",
+        ),
+        CABINETS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_CABINETS",
+          "Cabinets_Drawers_Cleaned_inside_and_outside",
+        ),
+        SINK_FAUCET: required(
+          "ZOHO_CRM_RENT_READY_FIELD_SINK_FAUCET",
+          "Sink_Faucet_No_leaks_garbage_disposal_functional",
+        ),
+        TOILET: required(
+          "ZOHO_CRM_RENT_READY_FIELD_TOILET",
+          "Toilet_Thoroughly_cleaned_flushes_properly_no_leak",
+        ),
+        SHOWER_TUB: required(
+          "ZOHO_CRM_RENT_READY_FIELD_SHOWER_TUB",
+          "Shower_Tub_Caulking_in_good_condition_shower_head",
+        ),
+        VANITY_SINK: required(
+          "ZOHO_CRM_RENT_READY_FIELD_VANITY_SINK",
+          "Vanity_Sink_Cleaned_faucet_functional",
+        ),
+        MIRROR_LIGHTING: required(
+          "ZOHO_CRM_RENT_READY_FIELD_MIRROR_LIGHTING",
+          "Mirror_Lighting_Mirror_cleaned_lights_working",
+        ),
+        VENTILATION: required(
+          "ZOHO_CRM_RENT_READY_FIELD_VENTILATION",
+          "Ventilation_Fan_clean_and_working",
+        ),
+        CLOSETS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_CLOSETS",
+          "Closets_Shelves_cleaned_doors_track_properly",
+        ),
+        FLOORING_BEDROOM: required(
+          "ZOHO_CRM_RENT_READY_FIELD_FLOORING_BEDROOM",
+          "Flooring_Cleaned_no_stains_or_debris",
+        ),
+        SMOKE_DETECTORS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_SMOKE_DETECTORS",
+          "Smoke_Detectors_New_batteries_installed_and_tested",
+        ),
+        CO_DETECTORS: required(
+          "ZOHO_CRM_RENT_READY_FIELD_CO_DETECTORS",
+          "CO_Detectors_New_batteries_installed_and_tested",
+        ),
+        FIRE_EXTINGUISHER: required(
+          "ZOHO_CRM_RENT_READY_FIELD_FIRE_EXTINGUISHER",
+          "Fire_Extinguisher_Present_and_updated_if_required",
+        ),
+        FINAL_CLEANING: required(
+          "ZOHO_CRM_RENT_READY_FIELD_FINAL_CLEANING",
+          "Final_Cleaning_Unit_is_dust_free_and_ready_for_fin",
+        ),
+        FINAL_WALKTHROUGH: required(
+          "ZOHO_CRM_RENT_READY_FIELD_FINAL_WALKTHROUGH",
+          "Final_Walkthrough_Final_walkthrough_completed",
+        ),
+      },
+    },
+
+    /*
+     * Check In / Check Out Inventory -> Zoho CRM (Check_In_log
+     * module). Confirmed against real sample CRM records - see
+     * services/zohoCheckInOutService.js. Note: Name is NOT set here
+     * - confirmed to be a plain Zoho auto-number field, unlike
+     * Invoice1/Rent_Ready_Checklist's composable text Name field.
+     */
+    crmCheckInOut: {
+      module: required("ZOHO_CRM_CHECK_IN_OUT_MODULE", "Check_In_log"),
+
+      fields: {
+        technician: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_TECHNICIAN",
+          "Technician",
+        ),
+        city: required("ZOHO_CRM_CHECK_IN_OUT_FIELD_CITY", "City"),
+        rehabUnit: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_REHAB_UNIT",
+          "Rehab_Unit",
+        ),
+        workOrder: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_WORK_ORDER",
+          "Work_Order",
+        ),
+        property: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_PROPERTY",
+          "Property",
+        ),
+        partsInventory: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_PARTS_INVENTORY",
+          "Parts_Inventory",
+        ),
+        quantityDesired: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_QUANTITY_DESIRED",
+          "Quantity_Desired",
+        ),
+        quantityReturned: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_QUANTITY_RETURNED",
+          "Quantity_Returned",
+        ),
+        dateTime: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_DATE_TIME",
+          "Date_Time",
+        ),
+        email: required("ZOHO_CRM_CHECK_IN_OUT_FIELD_EMAIL", "Email"),
+        partCode: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_PART_CODE",
+          "Part_Code",
+        ),
+        notes: required("ZOHO_CRM_CHECK_IN_OUT_FIELD_NOTES", "Details"),
+        action: required("ZOHO_CRM_CHECK_IN_OUT_FIELD_ACTION", "Action"),
+        checkinFor: required(
+          "ZOHO_CRM_CHECK_IN_OUT_FIELD_CHECKIN_FOR",
+          "Checkin_For",
+        ),
+      },
+    },
+
+    /*
+     * Process a Move Out -> Zoho CRM (Process_a_Move_Out module).
+     * Confirmed against a real sample CRM record - see
+     * services/zohoMoveOutService.js. Note: no dedicated Technician
+     * Name field exists on this module - the technician's name is
+     * mapped onto the record's own Name field instead (same
+     * approach used for Check In/Out's mandatory Name field).
+     */
+    crmMoveOut: {
+      module: required(
+        "ZOHO_CRM_MOVE_OUT_MODULE",
+        "Process_a_Move_Out",
+      ),
+
+      fields: {
+        email: required("ZOHO_CRM_MOVE_OUT_FIELD_EMAIL", "Email"),
+        property: required(
+          "ZOHO_CRM_MOVE_OUT_FIELD_PROPERTY",
+          "Property",
+        ),
+        unit: required("ZOHO_CRM_MOVE_OUT_FIELD_UNIT", "Unit"),
+        dateOfInspection: required(
+          "ZOHO_CRM_MOVE_OUT_FIELD_DATE_OF_INSPECTION",
+          "Date_of_inspection",
+        ),
+        status: required("ZOHO_CRM_MOVE_OUT_FIELD_STATUS", "Status"),
+        notes: required("ZOHO_CRM_MOVE_OUT_FIELD_NOTES", "Details"),
+      },
+    },
+
+    /*
      * Zoho Creator Tracking configuration (Technician Shift feature)
      *
      * NOTE: These are PLACEHOLDER field/form names. The actual Zoho
@@ -783,6 +1060,67 @@ const config = {
         ),
       },
     },
+  },
+
+  /*
+   * AppFolio API - replaces the old Desk-based "My Assigned Work
+   * Orders" data source entirely (per instructions: "rip it out,
+   * pull it from AppFolio directly"). See services/
+   * appFolioService.js, services/assignedWorkOrderStore.js, jobs/
+   * appFolioSyncJob.js.
+   */
+  appFolio: {
+    baseUrl: required("APPFOLIO_API_BASE_URL", "https://api.appfolio.com/api/v0"),
+    authHeader: required("APPFOLIO_AUTH_HEADER"),
+    developerId: required("APPFOLIO_DEVELOPER_ID"),
+
+    // How often the background sync runs - cron format, always
+    // interpreted in America/New_York. Default: every 5 minutes.
+    syncCron: required("APPFOLIO_SYNC_CRON", "*/5 * * * *"),
+
+    // Full reconciliation - once daily, replaces the ENTIRE local
+    // store with a fresh pull, so work orders deleted on AppFolio's
+    // side (which the 5-min incremental sync can't detect, since
+    // LastUpdatedAtFrom has no way to signal a deletion) get removed
+    // here too. Scoped to reconciliationLookbackDays rather than
+    // truly every work order ever, to keep this pull reasonably
+    // sized.
+    reconciliationCron: required("APPFOLIO_RECONCILIATION_CRON", "0 3 * * *"),
+    reconciliationLookbackDays: numberValue(
+      "APPFOLIO_RECONCILIATION_LOOKBACK_DAYS",
+      90,
+    ),
+
+    // How often the Users (staff) list gets refreshed - this
+    // changes rarely, so it's deliberately NOT part of the
+    // 5-minute cycle. Default: once every 24 hours.
+    usersCacheTtlMs: numberValue("APPFOLIO_USERS_CACHE_TTL_MS", 24 * 60 * 60 * 1000),
+
+    // Property/Unit lookups are cached aggressively since many
+    // work orders share the same property - default 6 hours.
+    propertyCacheTtlMs: numberValue("APPFOLIO_PROPERTY_CACHE_TTL_MS", 6 * 60 * 60 * 1000),
+    unitCacheTtlMs: numberValue("APPFOLIO_UNIT_CACHE_TTL_MS", 6 * 60 * 60 * 1000),
+
+    // Comma-separated. Anything in this list is treated as
+    // "complete" and filtered OUT of a technician's "My Assigned
+    // Work Orders" list. Admin's AppFolio Work Orders report always
+    // shows everything, regardless of this list.
+    completedStatuses: required(
+      "APPFOLIO_COMPLETED_STATUSES",
+      "Work Done,Ready to Bill,Completed,Completed No Need to Bill,Canceled",
+    ).split(",").map((value) => value.trim()),
+  },
+
+  /*
+   * Geocoding (OpenCage Data) - converts AppFolio's plain text
+   * property addresses into latitude/longitude for the geofencing
+   * feature (AppFolio itself provides no coordinates at all). Same
+   * provider + API key already proven working in the client's
+   * existing Zoho Creator Deluge script - ported directly, not a
+   * new/unproven provider. See services/geocodingService.js.
+   */
+  geocoding: {
+    openCageApiKey: required("OPENCAGE_API_KEY"),
   },
 
   /*

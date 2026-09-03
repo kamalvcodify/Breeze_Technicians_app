@@ -1,51 +1,8 @@
-const { creatorRequest } = require("./zohoCreatorService");
-
 const zohoTaskTrackingService = require("./zohoTaskTrackingService");
 
 const config = require("../config/env");
 const sessionStore = require("./trackingSessionStore");
-
-/*
- * Zoho Creator report API name.
- */
-const ASSIGNED_WORK_ORDERS_REPORT = "My_Assigned_Work_Orders_Report";
-
-/*
- * Creator field API names from the report response.
- */
-const CREATOR_FIELDS = {
-  id: "ID",
-
-  workOrder: "Work_Order",
-
-  residentName: "Resident_Name",
-
-  issueType: "Issue_Descriptor",
-
-  issueDetails: "Issue_Details",
-
-  jobDescription: "Job_Description",
-
-  description: "description",
-
-  address: "Address",
-
-  latitude: "Lat",
-
-  longitude: "Lng",
-
-  primaryAssigneeName: "Assignee",
-
-  primaryAssigneeEmail: "Email",
-
-  secondaryAssigneeName: "Assignee_2",
-
-  secondaryAssigneeEmail: "Assignee2_Email",
-
-  thirdAssigneeName: "Assignee_3",
-
-  thirdAssigneeEmail: "Assignee3_Email",
-};
+const assignedWorkOrderStore = require("./assignedWorkOrderStore");
 
 /**
  * Converts any value into trimmed text.
@@ -59,23 +16,6 @@ function cleanText(value) {
  */
 function normalizeEmail(value) {
   return cleanText(value).toLowerCase();
-}
-
-/**
- * Converts a Creator coordinate value into a number.
- *
- * Empty and invalid values return null.
- */
-function parseCoordinate(value) {
-  const cleanValue = cleanText(value);
-
-  if (!cleanValue) {
-    return null;
-  }
-
-  const coordinate = Number(cleanValue);
-
-  return Number.isFinite(coordinate) ? coordinate : null;
 }
 
 /**
@@ -93,202 +33,29 @@ function hasValidCoordinates(latitude, longitude) {
 }
 
 /**
- * Checks whether the logged-in technician is assigned
- * as the primary, secondary, or third technician.
- */
-function isAssignedToTechnician(record, technicianEmail) {
-  const targetEmail = normalizeEmail(technicianEmail);
-
-  if (!targetEmail) {
-    return false;
-  }
-
-  const assignedEmails = [
-    record[CREATOR_FIELDS.primaryAssigneeEmail],
-
-    record[CREATOR_FIELDS.secondaryAssigneeEmail],
-
-    record[CREATOR_FIELDS.thirdAssigneeEmail],
-  ]
-    .map(normalizeEmail)
-    .filter(Boolean);
-
-  return assignedEmails.includes(targetEmail);
-}
-
-/**
- * Creates a clean list of all technicians assigned
- * to a Work Order.
- */
-function buildAssignedTechnicians(record) {
-  const technicians = [
-    {
-      name: record[CREATOR_FIELDS.primaryAssigneeName],
-
-      email: record[CREATOR_FIELDS.primaryAssigneeEmail],
-
-      assignmentLevel: 1,
-    },
-
-    {
-      name: record[CREATOR_FIELDS.secondaryAssigneeName],
-
-      email: record[CREATOR_FIELDS.secondaryAssigneeEmail],
-
-      assignmentLevel: 2,
-    },
-
-    {
-      name: record[CREATOR_FIELDS.thirdAssigneeName],
-
-      email: record[CREATOR_FIELDS.thirdAssigneeEmail],
-
-      assignmentLevel: 3,
-    },
-  ];
-
-  const addedEmails = new Set();
-
-  return technicians
-    .map((technician) => ({
-      name: cleanText(technician.name),
-
-      email: normalizeEmail(technician.email),
-
-      assignmentLevel: technician.assignmentLevel,
-    }))
-    .filter((technician) => {
-      if (!technician.email) {
-        return false;
-      }
-
-      if (addedEmails.has(technician.email)) {
-        return false;
-      }
-
-      addedEmails.add(technician.email);
-
-      return true;
-    });
-}
-
-/**
- * Converts a raw Creator report record into the
- * frontend Work Order structure.
- */
-function normalizeWorkOrderRecord(record) {
-  const latitude = parseCoordinate(record[CREATOR_FIELDS.latitude]);
-
-  const longitude = parseCoordinate(record[CREATOR_FIELDS.longitude]);
-
-  const locationIsValid = hasValidCoordinates(latitude, longitude);
-
-  return {
-    id: cleanText(record[CREATOR_FIELDS.id]),
-
-    // FIX: strip a leading "#" from the ticket number at the source
-    // - Zoho returns tickets like "#10242-1-test", but per
-    // instructions the "#" should never appear anywhere downstream
-    // (the CRM Reference payload, or an eventual autofill form).
-    // Fixing it here, once, means every consumer of this field
-    // downstream automatically gets the clean value - no need to
-    // strip it again in multiple places.
-    workOrder: cleanText(record[CREATOR_FIELDS.workOrder]).replace(/^#/, ""),
-
-    residentName: cleanText(record[CREATOR_FIELDS.residentName]),
-
-    issueType: cleanText(record[CREATOR_FIELDS.issueType]),
-
-    issueDetails: cleanText(record[CREATOR_FIELDS.issueDetails]),
-
-    jobDescription: cleanText(record[CREATOR_FIELDS.jobDescription]),
-
-    description: cleanText(record[CREATOR_FIELDS.description]),
-
-    address: cleanText(record[CREATOR_FIELDS.address]),
-
-    latitude: locationIsValid ? latitude : null,
-
-    longitude: locationIsValid ? longitude : null,
-
-    hasValidLocation: locationIsValid,
-
-    assignedTechnicians: buildAssignedTechnicians(record),
-  };
-}
-
-/**
- * Fetches one page from the Zoho Creator report.
+ * Loads and returns Work Orders assigned to the currently logged-in
+ * technician.
+ * ----------------------------------------------------------------
+ * REPLACED - previously read from a Zoho Creator report fed by
+ * Desk/AppFolio's own sync (fetchReportPage/fetchAllAssignedWork
+ * Orders/CREATOR_FIELDS/normalizeWorkOrderRecord/
+ * isAssignedToTechnician/buildAssignedTechnicians - all removed,
+ * ~330 lines of now-dead Creator machinery). Per instructions
+ * ("rip it out, pull it from AppFolio directly"), this now reads
+ * from assignedWorkOrderStore.js instead - the local, already-
+ * resolved cache that services/appFolioSyncJob.js keeps updated in
+ * the background every few minutes (see jobs/appFolioSyncJob.js).
+ * This function is now just a filter + shape-adapter, no live
+ * AppFolio call happens here at all - "My Assigned Work Orders"
+ * stays fast regardless of AppFolio's own response time.
  *
- * creatorRequest already handles:
- * - Zoho access token
- * - Creator base URL
- * - Owner name
- * - App link name
- * - Authorization header
- */
-async function fetchReportPage({ from, limit }) {
-  const response = await creatorRequest(
-    "get",
-
-    `/report/${ASSIGNED_WORK_ORDERS_REPORT}`,
-
-    {
-      params: {
-        from,
-        limit,
-      },
-    },
-  );
-
-  if (Number(response?.code) !== 3000 && Number(response?.code) !== 3001) {
-    const error = new Error(
-      response?.message ||
-        "Zoho Creator returned an error while loading assigned Work Orders.",
-    );
-
-    error.statusCode = 502;
-    error.zohoResponse = response;
-
-    throw error;
-  }
-
-  return Array.isArray(response?.data) ? response.data : [];
-}
-
-/**
- * Fetches all records from the Creator report.
- *
- * Creator report pages are fetched until a page
- * contains fewer records than the requested limit.
- */
-async function fetchAllAssignedWorkOrders() {
-  const pageSize = 200;
-  const maximumPages = 20;
-
-  const records = [];
-
-  for (let page = 0; page < maximumPages; page += 1) {
-    const from = page * pageSize + 1;
-
-    const pageRecords = await fetchReportPage({
-      from,
-      limit: pageSize,
-    });
-
-    records.push(...pageRecords);
-
-    if (pageRecords.length < pageSize) {
-      break;
-    }
-  }
-
-  return records;
-}
-
-/**
- * Loads and returns Work Orders assigned to the
- * currently logged-in technician.
+ * Shape adapter notes: AppFolio's resolved work order
+ * (appFolioService.js's resolveWorkOrder()) doesn't carry a
+ * distinct "resident name" or "issue type" the way the old Creator
+ * report did - AppFolio doesn't expose those as separate fields, so
+ * they're left as empty strings rather than invented. unitName
+ * (new, not in the old Creator shape) is appended onto the address
+ * string for a complete, useful display value.
  */
 async function getAssignedWorkOrdersForTechnician(technicianEmail) {
   const normalizedTechnicianEmail = normalizeEmail(technicianEmail);
@@ -300,35 +67,77 @@ async function getAssignedWorkOrdersForTechnician(technicianEmail) {
     throw error;
   }
 
-  try {
-    const allRecords = await fetchAllAssignedWorkOrders();
+  const resolvedWorkOrders = assignedWorkOrderStore.getWorkOrdersForTechnician(
+    normalizedTechnicianEmail,
+  );
 
-    const assignedWorkOrders = allRecords
-      .filter((record) =>
-        isAssignedToTechnician(record, normalizedTechnicianEmail),
-      )
-      .map(normalizeWorkOrderRecord)
-      .filter((workOrder) => Boolean(workOrder.id));
+  // FIX: "My Assigned Work Orders" should only show INCOMPLETE work
+  // - anything in config.appFolio.completedStatuses (Work Done,
+  // Ready to Bill, Completed, Completed No Need to Bill, Canceled)
+  // drops off this list automatically once the next sync picks up
+  // that status change - no separate "is this deleted" handling
+  // needed here, since a completed/cancelled work order is filtered
+  // the same way whether it's freshly updated or has been sitting
+  // that way for a while.
+  const completedStatuses = config.appFolio.completedStatuses.map((status) =>
+    status.toLowerCase(),
+  );
 
-    return assignedWorkOrders;
-  } catch (error) {
-    console.error(
-      "[Tracking Service] Unable to load assigned Work Orders:",
-      error?.zohoResponse || error?.response?.data || error?.message,
+  const incompleteWorkOrders = resolvedWorkOrders.filter(
+    (workOrder) => !completedStatuses.includes(cleanText(workOrder.status).toLowerCase()),
+  );
+
+  // NEW - sorted by lastUpdatedAt, most recent first. Per
+  // instructions ("recently updated data at the top of the list"),
+  // matching the same sort applied to Admin's AppFolio Work Orders
+  // report.
+  const sortedWorkOrders = [...incompleteWorkOrders].sort((a, b) => {
+    const aTime = new Date(a.lastUpdatedAt || 0).getTime();
+    const bTime = new Date(b.lastUpdatedAt || 0).getTime();
+    return bTime - aTime;
+  });
+
+  return sortedWorkOrders.map((workOrder) => {
+    const locationIsValid = hasValidCoordinates(
+      workOrder.latitude,
+      workOrder.longitude,
     );
 
-    if (error?.statusCode) {
-      throw error;
-    }
+    const addressWithUnit = workOrder.unitName
+      ? `${workOrder.address}${workOrder.address ? " - " : ""}${workOrder.unitName}`
+      : workOrder.address;
 
-    const serviceError = new Error(
-      "Unable to retrieve assigned Work Orders from Zoho Creator.",
-    );
-
-    serviceError.statusCode = error?.response?.status || 500;
-
-    throw serviceError;
-  }
+    return {
+      id: cleanText(workOrder.id),
+      workOrder: cleanText(workOrder.workOrder),
+      residentName: "",
+      issueType: "",
+      issueDetails: cleanText(workOrder.description),
+      jobDescription: cleanText(workOrder.jobDescription),
+      description: cleanText(workOrder.description),
+      address: cleanText(addressWithUnit),
+      latitude: locationIsValid ? workOrder.latitude : null,
+      longitude: locationIsValid ? workOrder.longitude : null,
+      hasValidLocation: locationIsValid,
+      // FIX: status was already being resolved and stored, just
+      // never surfaced in this adapted shape - added per
+      // instructions.
+      status: cleanText(workOrder.status),
+      priority: cleanText(workOrder.priority),
+      // NEW - per instructions ("display all possible info the work
+      // order has"), added alongside what was already returned.
+      createdAt: workOrder.createdAt || null,
+      lastUpdatedAt: workOrder.lastUpdatedAt || null,
+      link: cleanText(workOrder.link),
+      assignedTechnicians: (workOrder.assignedTechnicians || []).map(
+        (technician, index) => ({
+          name: cleanText(technician.name),
+          email: normalizeEmail(technician.email),
+          assignmentLevel: index + 1,
+        }),
+      ),
+    };
+  });
 }
 
 /* ------------------------------------------------------------------

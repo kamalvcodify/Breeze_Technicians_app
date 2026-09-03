@@ -14,9 +14,9 @@ function isValidEmail(email) {
 /**
  * toPublicUser
  * ----------------------------------------------------------------
- * Now also returns name/city - the frontend's "Existing users" list
- * row already displays these (built earlier), but without reading
- * them here they'd silently show blank/fallback to email only.
+ * Also returns name/city - the frontend's "Existing users" list row
+ * displays these, but without reading them here they'd silently
+ * show blank/fallback to email only.
  * ----------------------------------------------------------------
  */
 function toPublicUser(record) {
@@ -78,4 +78,49 @@ async function listUsers(req, res) {
   return res.json({ users: records.map(toPublicUser) });
 }
 
-module.exports = { addUser, listUsers };
+/**
+ * findRecordById
+ * ----------------------------------------------------------------
+ * NEW - small helper shared by the 3 functions below.
+ * zohoUserService only exposes findUserByEmail, not by ID, and the
+ * list of users is small enough that fetching the full list and
+ * finding the match is simpler than adding a new Zoho lookup
+ * function just for this.
+ * ----------------------------------------------------------------
+ */
+async function findRecordById(id) {
+  const records = await zohoUserService.listUsers();
+  return records.find((record) => String(record.ID) === String(id)) || null;
+}
+
+/**
+ * deleteUser
+ * ----------------------------------------------------------------
+ * PERMANENTLY removes the record from Zoho Creator. An admin
+ * cannot delete their OWN account (a safety guard against
+ * accidental lockout).
+ * ----------------------------------------------------------------
+ */
+async function deleteUser(req, res) {
+  const { id } = req.params;
+
+  const record = await findRecordById(id);
+
+  if (!record) {
+    return res.status(404).json({ detail: "User not found." });
+  }
+
+  if (normalizeEmail(record[config.zoho.fields.email]) === normalizeEmail(req.user.email)) {
+    return res.status(400).json({ detail: "You cannot delete your own account." });
+  }
+
+  await zohoUserService.deleteUser(record.ID);
+
+  return res.json({ detail: "User deleted." });
+}
+
+module.exports = {
+  addUser,
+  listUsers,
+  deleteUser,
+};
